@@ -1,0 +1,7 @@
+streamlit>=1.32.0
+yfinance>=0.2.38
+pandas>=2.0.0
+numpy>=1.26.0
+plotly>=5.20.0
+# pandas_ta は Python 3.14 非対応（numba制約）のため除外。
+# RSIはapp.py内のWilder平滑化フォールバック実装で計算します。
