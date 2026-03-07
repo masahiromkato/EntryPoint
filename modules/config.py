@@ -142,13 +142,29 @@ div[data-baseweb="tooltip"], div[data-baseweb="tooltip"] * {
 .dot-on  { background:#4ADE80; box-shadow:0 0 6px #4ADE80; }
 .dot-off { background:#475569; }
 
-/* ── ウィジェット余白圧縮 ── */
-div[data-testid="stSlider"]       { margin-bottom: -1.2rem !important; }
-div[data-testid="stCheckbox"]     { margin-bottom: -0.8rem !important; }
-div[data-testid="stVerticalBlock"] > div { padding-bottom: 0 !important; padding-top: 0 !important; }
-div[data-testid="stSelectbox"]    { margin-bottom: -0.5rem !important; }
-div[data-testid="stDateInput"]    { margin-bottom: -0.5rem !important; }
-div[data-testid="stNumberInput"]  { margin-bottom: -0.5rem !important; }
+/* ── サイドバー・ウィジェットのスマート凝縮 ── */
+/* 各ウィジェット間の隙間を詰めつつ、ラベルの重なりを防ぐため控えめなマイナスマージンを設定 */
+div[data-testid="stSlider"]       { margin-bottom: -0.5rem !important; }
+div[data-testid="stCheckbox"]     { margin-bottom: -0.4rem !important; margin-top: -0.1rem !important; }
+div[data-testid="stSelectbox"]    { margin-bottom: -0.4rem !important; }
+div[data-testid="stDateInput"]    { margin-bottom: -0.4rem !important; }
+div[data-testid="stNumberInput"]  { margin-bottom: -0.4rem !important; }
+div[data-testid="stRadio"]        { margin-bottom: -0.4rem !important; }
+
+/* 垂直スタックの基本パディングを削除し、一律ではなくマイルドなマージンで調整 */
+div[data-testid="stVerticalBlock"] > div {
+    padding-bottom: 0 !important;
+    padding-top: 0 !important;
+    margin-bottom: -0.15rem !important;
+}
+
+/* 特定の深くネストされたブロックのみ少し強めに引き寄せる */
+[data-testid="stSidebar"] [data-testid="stVerticalBlock"] > [data-testid="stVerticalBlock"] > div {
+    margin-bottom: -0.2rem !important;
+}
+
+/* 水平線（divider）の前後余白を最小限に */
+hr { border-color: rgba(59,130,246,0.08) !important; margin-top: 0.2rem !important; margin-bottom: 0.2rem !important; }
 
 /* ── Plotly モードバー ── */
 .js-plotly-plot .plotly .modebar { background-color: rgba(30,41,59,0.8) !important; border-radius: 6px !important; }

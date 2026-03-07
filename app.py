@@ -62,7 +62,7 @@ def main():
                         horizontal=True, label_visibility="collapsed")
         if mode == "プリセット":
             label  = st.selectbox("銘柄", list(PRESET_TICKERS.keys()),
-                                  label_visibility="collapsed")
+                                   label_visibility="collapsed")
             ticker = PRESET_TICKERS[label]
         else:
             raw_ticker = st.text_input("ティッカー", value="",
@@ -76,22 +76,6 @@ def main():
             f'選択中 &nbsp;<span class="ticker-badge">{ticker}{name_disp}</span>',
             unsafe_allow_html=True,
         )
-        st.divider()
-
-        # ── 表示通貨 & 年次グリッド ───────────────────────────
-        st.markdown("### 💱 表示設定")
-        is_native_jpy   = ticker in JPY_TICKERS
-        display_currency = st.radio(
-            "表示通貨",
-            ["USD", "JPY"],
-            horizontal=True,
-            disabled=is_native_jpy,
-            help="JPY選択時：USD建て銘柄を当日のドル円レートで円換算します。日本株ETFは常にJPY表示です。",
-            label_visibility="collapsed",
-        )
-        if is_native_jpy:
-            display_currency = "JPY"
-        show_annual_grid = st.checkbox("年次グリッドを表示", value=True)
         st.divider()
 
         # ── 時間軸・取得期間 ──────────────────────────────────
@@ -126,10 +110,6 @@ def main():
 
         # ── シグナル条件 ──────────────────────────────────────
         st.markdown("### 🎯 シグナル条件")
-        cond_raw  = st.radio("条件の組み合わせ",
-                             ["OR（いずれか一つ）", "AND（すべて同時）"],
-                             help="OR = 感度高。AND = 確度高。")
-        cond_mode = "OR" if "OR" in cond_raw else "AND"
 
         # ── session_state 初期化（初回のみ）─────────────────
         for _k, _v in [("chg_thr_val", -5.0), ("rsi_thr_val", 35.0), ("dev_thr_val", -10.0)]:
@@ -141,22 +121,23 @@ def main():
             v = float(st.session_state[num_key])
             if force_neg and v > 0:
                 v = -v
-            st.session_state[val_key] = v
-            st.session_state[sld_key] = v
+            st.session_state[val_key] = round(v, 2)
+            st.session_state[num_key] = round(v, 2) # 反映
+            st.session_state[sld_key] = round(v, 2)
 
         # callback: slider -> number_input
         def _sync_from_sld(val_key: str, num_key: str, sld_key: str, force_neg: bool = False):
             v = float(st.session_state[sld_key])
-            st.session_state[val_key] = v
-            st.session_state[num_key] = v
+            st.session_state[val_key] = round(v, 2)
+            st.session_state[num_key] = round(v, 2)
+            st.session_state[sld_key] = round(v, 2) # 反映
 
         # CHG (price change vs prev bar)
-        st.markdown("---")
         _ca, _cb = st.columns([1, 9])
         use_chg = _ca.checkbox("", value=True, key="use_chg")
         _cb.markdown(
-            "<p style='margin:0;padding-top:5px;font-size:0.8rem;font-weight:700'>"
-            "\u9a30\u843d\u7387(\u524d\u8db3\u6bd4) \u95be\u5024 (%)</p>",
+            "<p style='margin:0;padding-top:5px;font-size:0.82rem;font-weight:700'>"
+            "\u9a30\u843d\u7387 \u95be\u5024 (%)</p>",
             unsafe_allow_html=True,
         )
         st.number_input(
@@ -178,11 +159,10 @@ def main():
         chg_thr = float(st.session_state["chg_thr_val"])
 
         # RSI
-        st.markdown("---")
         _ra, _rb = st.columns([1, 9])
         use_rsi = _ra.checkbox("", value=False, key="use_rsi")
         _rb.markdown(
-            "<p style='margin:0;padding-top:5px;font-size:0.8rem;font-weight:700'>"
+            "<p style='margin:0;padding-top:5px;font-size:0.82rem;font-weight:700'>"
             "RSI(14) \u95be\u5024</p>",
             unsafe_allow_html=True,
         )
@@ -205,11 +185,10 @@ def main():
         rsi_thr = float(st.session_state["rsi_thr_val"])
 
         # MA deviation
-        st.markdown("---")
         _da, _db = st.columns([1, 9])
         use_ma = _da.checkbox("", value=False, key="use_ma")
         _db.markdown(
-            f"<p style='margin:0;padding-top:5px;font-size:0.8rem;font-weight:700'>"
+            f"<p style='margin:0;padding-top:5px;font-size:0.82rem;font-weight:700'>"
             f"{ma_label}\u4e56\u96e2\u7387 \u95be\u5024 (%)</p>",
             unsafe_allow_html=True,
         )
@@ -231,9 +210,33 @@ def main():
         )
         dev_thr = float(st.session_state["dev_thr_val"])
 
-        st.divider()
+        # 🧩 条件の組み合わせ（シグナル条件内に統合 ── 余分なラベル・余白を排除）
+        cond_raw  = st.radio("条件の組み合わせ",
+                             ["OR（いずれか一つ）", "AND（すべて同時）"],
+                             index=0 if st.session_state.get("cond_mode_val", "OR") == "OR" else 1,
+                             help="OR = 感度高。AND = 確度高。",
+                             label_visibility="collapsed")
+        cond_mode = "OR" if "OR" in cond_raw else "AND"
+        st.session_state["cond_mode_val"] = cond_mode
 
-        # ── 積立シミュレーション ──────────────────────────────
+        # ── 💱 表示設定 ───────────────────────────
+        st.divider()
+        st.markdown("### 💱 表示設定")
+        is_native_jpy   = ticker in JPY_TICKERS
+        display_currency = st.radio(
+            "表示通貨",
+            ["USD", "JPY"],
+            horizontal=True,
+            disabled=is_native_jpy,
+            help="JPY選択時：USD建て銘柄を当日のドル円レートで円換算します。日本株ETFは常にJPY表示です。",
+            label_visibility="collapsed",
+        )
+        if is_native_jpy:
+            display_currency = "JPY"
+        show_annual_grid = st.checkbox("年次グリッドを表示", value=True)
+
+        # ── 💰 積立シミュレーション ──────────────────────────────
+        st.divider()
         sym = "¥" if display_currency == "JPY" or is_native_jpy else "$"
         st.markdown("### 💰 積立シミュレーション")
         periodic_invest = st.number_input(
@@ -242,9 +245,9 @@ def main():
         signal_bonus = st.number_input(
             f"シグナル時の追加投資額 ({sym})", 0, 50_000_000, 50_000, 5_000,
             help=f"シグナル点灯した{unit}のみ追加で投資する額")
-        st.divider()
 
-        # ── チャート高さ比率 ──────────────────────────────────
+        # ── 📐 チャート高さ比率 ──────────────────────────────────
+        st.divider()
         st.markdown("### 📐 チャート高さ比率")
         h_price = st.slider("株価チャート", 10, 80, 65, 5, help="上段（株価）の高さ比率")
         h_rsi   = st.slider("RSIチャート",  5,  40, 20, 5, help="中段（RSI）の高さ比率")
@@ -384,6 +387,7 @@ def main():
             st.info("現在の条件ではシグナルが発生していません。閾値を緩めるかトグルをONにしてください。")
         else:
             sig_rows.index.name = "日付"
+            sig_rows.index = sig_rows.index.strftime('%Y-%m-%d') # 時刻を消す
             sig_rows = sig_rows.rename(columns={
                 "Close":     "終値",
                 "MA_VAL":    ma_label,

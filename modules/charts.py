@@ -69,6 +69,7 @@ def build_chart(
             increasing_fillcolor="rgba(74,222,128,0.27)",
             decreasing_fillcolor="rgba(248,113,113,0.27)",
             legendgroup="price", legend="legend", whiskerwidth=0,
+            showlegend=False,
         ), row=1, col=1)
     else:
         fig.add_trace(go.Scatter(
