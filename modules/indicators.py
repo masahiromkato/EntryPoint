@@ -35,7 +35,7 @@ def calc_indicators(df: pd.DataFrame, ma_period: int = 50) -> pd.DataFrame:
     df["MA_VAL"]    = close.rolling(window=ma_period, min_periods=ma_period).mean()
     df["DEV"]       = (close - df["MA_VAL"]) / df["MA_VAL"] * 100
     df["RSI"]       = calc_rsi(close, 14)
-    df["PRICE_CHG"] = close.pct_change() * 100
+    df["PRICE_CHG"] = (df["Close"].pct_change() * 100).fillna(0.0).astype(float)
     return df
 
 

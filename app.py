@@ -28,6 +28,9 @@ set_global_css()
 # ユーティリティ
 # =============================================================================
 def currency_symbol(ticker: str, display_currency: str) -> str:
+    # 指数（^GSPC等）の場合は記号なし
+    if ticker.startswith("^"):
+        return ""
     if ticker in JPY_TICKERS or display_currency == "JPY":
         return "¥"
     return "$"
@@ -36,9 +39,9 @@ def fmt(val: float, ticker: str, display_currency: str) -> str:
     s  = currency_symbol(ticker, display_currency)
     av = abs(val)
     if av >= 1_000_000_000: return f"{s}{val/1_000_000_000:.2f}B"
-    if av >= 1_000_000:     return f"{s}{val/1_000_000:.2f}M"
-    if av >= 1_000:         return f"{s}{val/1_000:.1f}K"
-    return f"{s}{val:,.2f}"
+    if av >= 1_000_000:     return f"{s}{val/1_000:.1f}K" if ticker.startswith("^") else f"{s}{val/1_000_000:.2f}M"
+    if av >= 1_000:         return f"{s}{val:,.0f}" if ticker.startswith("^") else f"{s}{val/1_000:.1f}K"
+    return f"{s}{val:,.2f}" if ticker.startswith("^") else f"{s}{val:,.2f}"
 
 # =============================================================================
 # メインアプリ

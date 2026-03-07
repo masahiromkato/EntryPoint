@@ -10,8 +10,8 @@ GRID    = "rgba(148,163,184,0.12)"
 AMBER   = "#F59E0B"
 BLUE    = "#60A5FA"
 PURPLE  = "#A855F7"
-GREEN   = "#4ADE80"
-RED     = "#F87171"
+GREEN   = "#39FF14"  # Neon Green
+RED     = "#FF3131"  # Neon Red
 INDIGO  = "#818CF8"
 
 # シグナル色（高彩度・枠線と非同化）
@@ -66,10 +66,18 @@ def build_chart(
             low=plot["Low"], close=plot["Close"],
             name="ローソク足",
             increasing_line_color=GREEN, decreasing_line_color=RED,
-            increasing_fillcolor="rgba(74,222,128,0.27)",
-            decreasing_fillcolor="rgba(248,113,113,0.27)",
-            legendgroup="price", legend="legend", whiskerwidth=0,
+            increasing_fillcolor=GREEN,
+            decreasing_fillcolor=RED,
+            legendgroup="price", legend="legend", whiskerwidth=0.4,
             showlegend=False,
+            # ツールチップの完全制御（Date, Open, Close, Changeのみ）
+            hovertemplate=(
+                "Date: %{x|%Y-%m-%d}<br>"
+                "Open: %{open:,.2f}<br>"
+                "Close: %{close:,.2f}<br>"
+                "Change: %{customdata:+.2f}%<extra></extra>"
+            ),
+            customdata=plot["PRICE_CHG"].values if "PRICE_CHG" in plot.columns else np.zeros(len(plot)),
         ), row=1, col=1)
     else:
         fig.add_trace(go.Scatter(
@@ -85,6 +93,7 @@ def build_chart(
         name=ma_label, mode="lines",
         line=dict(color=AMBER, width=2, dash="dot"),
         legendgroup="price", legend="legend",
+        hoverinfo="skip",  # MAのホバー表示を物理的に遮断
     ), row=1, col=1)
 
     # ── シグナルマーカー ─────────────────────────────────────
@@ -274,13 +283,13 @@ def build_chart(
         font=dict(family="Inter", size=12, color="#FFFFFF"),
         xaxis_rangeslider_visible=False,
         height=1080,
-        # 右マージン縮小（凡例をチャート内に戻す）
         margin=dict(l=70, r=18, t=50, b=28),
-        hovermode="x unified",
+        hovermode="x",  # unifiedを廃止し、最上部の自動ヘッダー（年月など）を根絶
         hoverlabel=dict(
-            bgcolor="rgba(14,17,23,0.75)",   # 半透過でラベル下の要素が透けて見える
+            bgcolor="rgba(14,17,23,0.75)",
             font_size=12, font_color="#FFFFFF",
             bordercolor="rgba(59,130,246,0.6)", align="left",
+            namelength=0,  # トレース名を物理的に削除しヘッダーノイズを遮断
         ),
         shapes=[
             dict(type="line", xref="paper", yref="paper",
@@ -290,7 +299,6 @@ def build_chart(
                  x0=0, x1=1, y0=sep2_y, y1=sep2_y,
                  line=dict(color="#3B82F6", width=2.5)),
         ],
-        # 凡例3つを左内側に配置 — 年次ラベル(y≈0.93付近まで)の直下から開始
         legend =dict(**LEG_BASE, x=0.01, y=0.93, xanchor="left", yanchor="top"),
         legend2=dict(**LEG_BASE, x=0.01, y=domain2[1] - 0.01, xanchor="left", yanchor="top"),
         legend3=dict(**LEG_BASE, x=0.01, y=domain3[1] - 0.01, xanchor="left", yanchor="top"),
@@ -316,7 +324,9 @@ def build_chart(
     fig.update_yaxes(title_text="価格",   **ax, row=1, col=1)
     fig.update_yaxes(title_text="RSI",    range=[0, 100], **ax, row=2, col=1)
     fig.update_yaxes(title_text="資産額", **ax, row=3, col=1)
-    xax = dict(gridcolor=GRID, tickfont=AX_F, showgrid=True)
+    
+    # x軸のホバー形式を統一してヘッダー抑制を助ける
+    xax = dict(gridcolor=GRID, tickfont=AX_F, showgrid=True, hoverformat="%Y-%m-%d")
     fig.update_xaxes(**xax, showticklabels=True,  row=1, col=1)
     fig.update_xaxes(**xax, showticklabels=False, row=2, col=1)
     fig.update_xaxes(**xax, showticklabels=True,  row=3, col=1)
@@ -330,15 +340,13 @@ def build_dev_chart(df: pd.DataFrame, dev_thr: float, ma_label: str) -> go.Figur
     colors = np.where(v["DEV"] < 0, "rgba(255,50,80,0.92)", "rgba(50,255,140,0.92)")
     sig    = v[v["Sig_MA"] == True] if "Sig_MA" in v.columns else v.iloc[:0]
     fig    = go.Figure()
-    fig.add_trace(go.Bar(x=v.index, y=v["DEV"], marker_color=colors, opacity=0.78, name=f"{ma_label}乖離率"))
-    if not sig.empty:
-        fig.add_trace(go.Scatter(
-            x=sig.index, y=sig["DEV"],
-            mode="markers", name=f"{ma_label}シグナル",
-            marker=dict(symbol="triangle-up", size=14, color=SIG_MA_COLOR,
-                        line=dict(color="#FFFFFF", width=1.8)),
-            hoverinfo="skip",
-        ))
+    fig.add_trace(go.Bar(
+        x=v.index, y=v["DEV"], 
+        marker_color=colors, 
+        opacity=1.0, 
+        marker_line_width=0,
+        name=f"{ma_label}乖離率"
+    ))
     fig.add_hline(y=dev_thr, line=dict(color="#F59E0B", width=2.5, dash="dash"),
                   annotation_text=f"閾値 {dev_thr}%", annotation_font_color="#F59E0B",
                   annotation_position="top right")
@@ -370,14 +378,6 @@ def build_rsi_detail_chart(df: pd.DataFrame, rsi_thr: float) -> go.Figure:
         name="RSI(14)", mode="lines",
         line=dict(color=INDIGO, width=1.8),
     ))
-    if not sig.empty:
-        fig.add_trace(go.Scatter(
-            x=sig.index, y=sig["RSI"],
-            mode="markers", name="RSIシグナル",
-            marker=dict(symbol="triangle-up", size=14, color=SIG_RSI_COLOR,
-                        line=dict(color="#FFFFFF", width=1.8)),
-            hoverinfo="skip",
-        ))
     fig.add_hline(y=rsi_thr, line=dict(color=AMBER, width=1.5, dash="dash"),
                   annotation_text=f"   閾値 {rsi_thr}", annotation_font_color=AMBER,
                   annotation_position="top right")
@@ -407,17 +407,11 @@ def build_chg_chart(df: pd.DataFrame, chg_thr: float, unit: str) -> go.Figure:
     fig    = go.Figure()
     fig.add_trace(go.Bar(
         x=v.index, y=v["PRICE_CHG"],
-        marker_color=colors, opacity=0.72,
+        marker_color=colors, 
+        opacity=1.0, 
+        marker_line_width=0,
         name=f"前{unit}比騰落率",
     ))
-    if not sig.empty:
-        fig.add_trace(go.Scatter(
-            x=sig.index, y=sig["PRICE_CHG"],
-            mode="markers", name="騰落率シグナル",
-            marker=dict(symbol="triangle-up", size=14, color=SIG_CHG_COLOR,
-                        line=dict(color="#FFFFFF", width=1.8)),
-            hoverinfo="skip",
-        ))
     fig.add_hline(y=chg_thr, line=dict(color=AMBER, width=2.5, dash="dash"),
                   annotation_text=f"   閾値 {chg_thr}%", annotation_font_color=AMBER,
                   annotation_position="top left")
