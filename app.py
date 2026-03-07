@@ -73,7 +73,7 @@ def main():
         ticker_name = fetch_ticker_name(ticker)
         name_disp   = f" {ticker_name}" if ticker_name else ""
         st.markdown(
-            f'選択中 &nbsp;<span class="ticker-badge">{ticker}{name_disp}</span>',
+            f'選択中 &nbsp;<span class="ticker-badge">{name_disp.strip()}</span>',
             unsafe_allow_html=True,
         )
         st.divider()
@@ -435,15 +435,37 @@ def main():
                 <style>
                 div[data-testid="stTable"] table {
                     background:#1E1E2E !important; color:#E2E8F0 !important;
-                    border-collapse:collapse; width:100%; font-size:0.82rem;
+                    border-collapse:collapse; 
+                    width: auto !important;
+                    margin-left: 0 !important;
+                }
+                div[data-testid="stTable"] th, div[data-testid="stTable"] td {
+                    padding: 6px 12px !important; border-bottom:1px solid #334155 !important;
+                    white-space: nowrap !important;
+                    text-align: right !important;
+                }
+                div[data-testid="stTable"] td {
+                    padding-right: 12px !important;
                 }
                 div[data-testid="stTable"] th {
                     background:#0F172A !important; color:#94A3B8 !important;
-                    padding:6px 10px; border-bottom:1px solid #334155 !important;
+                    border-bottom:1px solid #475569 !important;
                 }
-                div[data-testid="stTable"] td {
-                    padding:5px 10px; border-bottom:1px solid #1E293B !important;
-                    color:#E2E8F0 !important; background:#1E1E2E !important;
+                /* 日付列（1列目）の幅を最適化 */
+                div[data-testid="stTable"] th:nth-child(1), 
+                div[data-testid="stTable"] td:nth-child(1) {
+                    min-width: 90px !important;
+                    max-width: 100px !important;
+                    text-align: left !important;
+                    padding-left: 8px !important;
+                }
+                /* 4列目（騰落率）と 6列目（乖離率）の幅を 80px に制限 */
+                div[data-testid="stTable"] th:nth-child(4), 
+                div[data-testid="stTable"] td:nth-child(4),
+                div[data-testid="stTable"] th:nth-child(6), 
+                div[data-testid="stTable"] td:nth-child(6) {
+                    min-width: 80px !important;
+                    max-width: 90px !important;
                 }
                 div[data-testid="stTable"] tr:hover td {
                     background:#1E3A5F !important;
@@ -456,8 +478,8 @@ def main():
     with st.expander(f"📊  前{unit}比 騰落率チャートを開く", expanded=False):
         st.plotly_chart(build_chg_chart(df, float(chg_thr), unit), use_container_width=True)
 
-    # 3. RSI詳細チャート
-    with st.expander("📊  RSI(14) 詳細チャートを開く", expanded=False):
+    # 3. RSIチャート
+    with st.expander("📊  RSI(14) チャートを開く", expanded=False):
         st.plotly_chart(build_rsi_detail_chart(df, float(rsi_thr)), use_container_width=True)
 
     # 4. MA乖離率チャート
@@ -482,7 +504,7 @@ def main():
 
         cl, cr = st.columns(2)
         with cl:
-            st.markdown("#### 💙 DCA（定額積立）")
+            st.markdown("##### 💙 DCA (定額積立)")
             a, b = st.columns(2)
             a.metric("最終資産額",   fmt(dv, ticker, display_currency))
             b.metric("投資元本合計", fmt(di, ticker, display_currency))
@@ -494,7 +516,7 @@ def main():
             f.metric("最大ドローダウン (MDD)", f"{d_mdd:+.1f}%")
 
         with cr:
-            st.markdown("#### 💜 シグナル戦略（定額 ＋ シグナル追加）")
+            st.markdown("##### 💜 シグナル戦略")
             g, h_ = st.columns(2)
             g.metric("最終資産額",   fmt(sv, ticker, display_currency))
             h_.metric("投資元本合計", fmt(si, ticker, display_currency))
