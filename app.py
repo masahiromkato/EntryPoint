@@ -142,25 +142,28 @@ def main():
         st.markdown("<div style='margin-bottom:5px;'></div>", unsafe_allow_html=True)
 
         # ── session_state 初期化（初回のみ）─────────────────
-        for _k, _v in [("chg_thr_val", -5.0), ("rsi_thr_val", 35.0), ("dev_thr_val", -10.0)]:
+        init_values = [
+            ("chg_thr_val", -5.0), ("chg_thr_num", 5.0), ("chg_thr_sld", -5.0),
+            ("rsi_thr_val", 35.0), ("rsi_thr_num", 35.0), ("rsi_thr_sld", 35.0),
+            ("dev_thr_val", -10.0), ("dev_thr_num", 10.0), ("dev_thr_sld", -10.0)
+        ]
+        for _k, _v in init_values:
             if _k not in st.session_state:
                 st.session_state[_k] = _v
 
-        # callback: number_input -> slider (force_neg auto-flips positive to negative)
+        # callback: number_input -> slider
         def _sync_from_num(val_key: str, num_key: str, sld_key: str, force_neg: bool = False):
-            v = float(st.session_state[num_key])
-            if force_neg and v > 0:
-                v = -v
-            st.session_state[val_key] = round(v, 2)
-            st.session_state[num_key] = round(v, 2) # 反映
-            st.session_state[sld_key] = round(v, 2)
+            v_num = float(st.session_state[num_key])
+            v_internal = -v_num if force_neg else v_num
+            st.session_state[val_key] = round(v_internal, 2)
+            st.session_state[sld_key] = round(v_internal, 2)
 
         # callback: slider -> number_input
         def _sync_from_sld(val_key: str, num_key: str, sld_key: str, force_neg: bool = False):
-            v = float(st.session_state[sld_key])
-            st.session_state[val_key] = round(v, 2)
-            st.session_state[num_key] = round(v, 2)
-            st.session_state[sld_key] = round(v, 2) # 反映
+            v_sld = float(st.session_state[sld_key])
+            v_num = abs(v_sld) if force_neg else v_sld
+            st.session_state[val_key] = round(v_sld, 2)
+            st.session_state[num_key] = round(v_num, 2)
 
         # CHG (price change vs prev bar)
         _ca, _cb = st.columns([1, 9])
@@ -173,17 +176,16 @@ def main():
         st.number_input(
             "chg_num", min_value=0.01, max_value=20.0, step=0.01, format="%.2f",
             disabled=not use_chg, key="chg_thr_num",
-            value=abs(st.session_state["chg_thr_val"]),
             on_change=_sync_from_num,
             kwargs=dict(val_key="chg_thr_val", num_key="chg_thr_num",
                         sld_key="chg_thr_sld", force_neg=True),
             label_visibility="collapsed",
         )
         st.slider(
-            "chg_sld", -20.0, -0.01, st.session_state["chg_thr_val"], 0.01,
+            "chg_sld", -20.0, -0.01, step=0.01,
             disabled=not use_chg, key="chg_thr_sld",
             on_change=_sync_from_sld,
-            kwargs=dict(val_key="chg_thr_val", num_key="chg_thr_num", sld_key="chg_thr_sld"),
+            kwargs=dict(val_key="chg_thr_val", num_key="chg_thr_num", sld_key="chg_thr_sld", force_neg=True),
             label_visibility="collapsed",
         )
         chg_thr = float(st.session_state["chg_thr_val"])
@@ -199,14 +201,13 @@ def main():
         st.number_input(
             "rsi_num", min_value=15.0, max_value=85.0, step=0.01, format="%.2f",
             disabled=not use_rsi, key="rsi_thr_num",
-            value=st.session_state["rsi_thr_val"],
             on_change=_sync_from_num,
             kwargs=dict(val_key="rsi_thr_val", num_key="rsi_thr_num",
                         sld_key="rsi_thr_sld", force_neg=False),
             label_visibility="collapsed",
         )
         st.slider(
-            "rsi_sld", 15.0, 85.0, st.session_state["rsi_thr_val"], 0.01,
+            "rsi_sld", 15.0, 85.0, step=0.01,
             disabled=not use_rsi, key="rsi_thr_sld",
             on_change=_sync_from_sld,
             kwargs=dict(val_key="rsi_thr_val", num_key="rsi_thr_num", sld_key="rsi_thr_sld"),
@@ -225,17 +226,16 @@ def main():
         st.number_input(
             "dev_num", min_value=0.01, max_value=30.0, step=0.01, format="%.2f",
             disabled=not use_ma, key="dev_thr_num",
-            value=abs(st.session_state["dev_thr_val"]),
             on_change=_sync_from_num,
             kwargs=dict(val_key="dev_thr_val", num_key="dev_thr_num",
                         sld_key="dev_thr_sld", force_neg=True),
             label_visibility="collapsed",
         )
         st.slider(
-            "dev_sld", -30.0, -0.01, st.session_state["dev_thr_val"], 0.01,
+            "dev_sld", -30.0, -0.01, step=0.01,
             disabled=not use_ma, key="dev_thr_sld",
             on_change=_sync_from_sld,
-            kwargs=dict(val_key="dev_thr_val", num_key="dev_thr_num", sld_key="dev_thr_sld"),
+            kwargs=dict(val_key="dev_thr_val", num_key="dev_thr_num", sld_key="dev_thr_sld", force_neg=True),
             label_visibility="collapsed",
         )
         dev_thr = float(st.session_state["dev_thr_val"])

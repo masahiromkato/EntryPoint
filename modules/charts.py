@@ -15,9 +15,9 @@ RED     = "#FF3131"  # Neon Red
 INDIGO  = "#818CF8"
 
 # シグナル色（高彩度・枠線と非同化）
-SIG_MA_COLOR  = "#EF4444"  # レッド（MA乖離率）
+SIG_MA_COLOR  = "#FFEA00"  # 鮮やかな黄色（MA乖離率）
 SIG_RSI_COLOR = "#A855F7"  # パープル（RSI）
-SIG_CHG_COLOR = "#00CED1"  # ターコイズ（騰落率）
+SIG_CHG_COLOR = "#D50000"  # 鮮やかな濃い赤（騰落率）
 SIG_CMP_COLOR = "#F97316"  # オレンジ（複合）
 
 AX_F = dict(color="#64748B", size=11, family="Inter")
@@ -123,7 +123,7 @@ def build_chart(
                 mode="markers", name=name,
                 marker=dict(
                     symbol="circle", size=14, color=col, opacity=1.0,
-                    line=dict(color="#FFFFFF", width=1.5),
+                    line=dict(color="#E0E0E0", width=1.0),
                 ),
                 legendgroup="price", legend="legend", hoverinfo="skip",
             ), row=1, col=1)

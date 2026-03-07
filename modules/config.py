@@ -130,7 +130,7 @@ div[data-baseweb="tooltip"], div[data-baseweb="tooltip"] * {
 /* ── ティッカーバッジ ── */
 .ticker-badge {
     display:inline-block;
-    background:#00CED1; color:#050E1A !important;
+    background:#0066CC; color:#FFFFFF !important;
     font-weight:800; font-size:0.82rem;
     padding:0.16rem 0.65rem; border-radius:999px; letter-spacing:0.04em;
 }
