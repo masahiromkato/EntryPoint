@@ -142,29 +142,65 @@ div[data-baseweb="tooltip"], div[data-baseweb="tooltip"] * {
 .dot-on  { background:#4ADE80; box-shadow:0 0 6px #4ADE80; }
 .dot-off { background:#475569; }
 
-/* ── サイドバー・ウィジェットのスマート凝縮 ── */
-/* 各ウィジェット間の隙間を詰めつつ、ラベルの重なりを防ぐため控えめなマイナスマージンを設定 */
-div[data-testid="stSlider"]       { margin-bottom: -0.5rem !important; }
-div[data-testid="stCheckbox"]     { margin-bottom: -0.4rem !important; margin-top: -0.1rem !important; }
-div[data-testid="stSelectbox"]    { margin-bottom: -0.4rem !important; }
-div[data-testid="stDateInput"]    { margin-bottom: -0.4rem !important; }
-div[data-testid="stNumberInput"]  { margin-bottom: -0.4rem !important; }
-div[data-testid="stRadio"]        { margin-bottom: -0.4rem !important; }
+/* ── サイドバー・レイアウトの最終安定化 ── */
+/* 負のマージンを完全に廃止し、物理的な重なりを排除 */
+div[data-testid="stSidebar"] div.element-container {
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+}
 
-/* 垂直スタックの基本パディングを削除し、一律ではなくマイルドなマージンで調整 */
-div[data-testid="stVerticalBlock"] > div {
-    padding-bottom: 0 !important;
+/* 要素間の隙間を一律 0.5rem に固定。被りを物理的に不可能にする */
+div[data-testid="stSidebar"] [data-testid="stVerticalBlock"] {
+    gap: 0.5rem !important;
+}
+
+/* 各ウィジェット内部の余白リセット（高密度化のベース） */
+div[data-testid="stSlider"],
+div[data-testid="stCheckbox"],
+div[data-testid="stSelectbox"],
+div[data-testid="stDateInput"],
+div[data-testid="stNumberInput"],
+div[data-testid="stRadio"] {
+    margin-bottom: 0 !important;
+    margin-top: 0 !important;
+}
+
+/* 見出し（H3）の余白リセット（負のマージン廃止） */
+section[data-testid="stSidebar"] h3 {
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+}
+
+/* 水平線（divider）の余白 */
+hr {
+    border-color: rgba(255,255,255,0.15) !important;
+    margin-top: 0.5rem !important;
+    margin-bottom: 0.5rem !important;
+}
+
+/* サイドバー最上部の余白削除（物理的ゼロ） */
+[data-testid="stSidebarNav"] { display: none !important; }
+
+/* サイドバー全体を包む一番外側のコンテナの余白を消す */
+[data-testid="stSidebarContent"] {
     padding-top: 0 !important;
-    margin-bottom: -0.15rem !important;
+    margin-top: 0 !important;
 }
 
-/* 特定の深くネストされたブロックのみ少し強めに引き寄せる */
-[data-testid="stSidebar"] [data-testid="stVerticalBlock"] > [data-testid="stVerticalBlock"] > div {
-    margin-bottom: -0.2rem !important;
+/* 親コンテナのパディングをゼロにし、内部ブロックの最上部もゼロに強制 */
+section[data-testid="stSidebar"] [data-testid="stSidebarUserContent"],
+section[data-testid="stSidebar"] div.stVerticalBlock:first-of-type {
+    padding-top: 0rem !important;
 }
 
-/* 水平線（divider）の前後余白を最小限に */
-hr { border-color: rgba(59,130,246,0.08) !important; margin-top: 0.2rem !important; margin-bottom: 0.2rem !important; }
+/* サイドバー内の最初の要素グループの上部マージンを強制的に消す（残った隙間を埋める） */
+section[data-testid="stSidebar"] [data-testid="stVerticalBlock"] > div:first-child {
+    margin-top: -1rem !important;
+}
+
+section[data-testid="stSidebar"] .element-container:first-of-type {
+    margin-top: 0 !important;
+}
 
 /* ── Plotly モードバー ── */
 .js-plotly-plot .plotly .modebar { background-color: rgba(30,41,59,0.8) !important; border-radius: 6px !important; }

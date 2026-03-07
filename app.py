@@ -53,9 +53,6 @@ def main():
 
     # ═══ サイドバー ══════════════════════════════════════════
     with st.sidebar:
-        st.markdown("## ⚙️ 設定パネル")
-        st.divider()
-
         # ── ティッカー ────────────────────────────────────────
         st.markdown("### 📌 ティッカー")
         mode = st.radio("入力方法", ["プリセット", "手動入力"],
@@ -77,8 +74,6 @@ def main():
             unsafe_allow_html=True,
         )
         st.divider()
-
-        # ── 時間軸・取得期間 ──────────────────────────────────
         st.markdown("### 📅 時間軸・取得期間")
         iv_label    = st.selectbox("足種", list(INTERVAL_OPTIONS.keys()), index=1,
                                    label_visibility="collapsed")
@@ -89,15 +84,41 @@ def main():
         ma_period = st.number_input("MA（移動平均）期間", min_value=1, max_value=500, value=50, step=1)
         ma_label  = f"{ma_period}{iv['ma_suffix']}MA"
 
+        # ── 📅 期間指定（西暦・日付連動） ──────────────────────
+
         today         = datetime.date.today()
         default_start = today - datetime.timedelta(days=365 * 10)
 
+        # session_state 初期化
+        if "start_date" not in st.session_state: st.session_state["start_date"] = default_start
+        if "end_date"   not in st.session_state: st.session_state["end_date"]   = today
+        if "start_year" not in st.session_state: st.session_state["start_year"] = default_start.year
+        if "end_year"   not in st.session_state: st.session_state["end_year"]   = today.year
+
+        # コールバック: 年入力 -> 日付反映
+        def _sync_yr_to_dt():
+            st.session_state["start_date"] = datetime.date(st.session_state["start_year"], 1, 1)
+            st.session_state["end_date"]   = datetime.date(st.session_state["end_year"], 12, 31)
+
+        # コールバック: 日付変更 -> 年反映
+        def _sync_dt_to_yr():
+            st.session_state["start_year"] = st.session_state["start_date"].year
+            st.session_state["end_year"]   = st.session_state["end_date"].year
+
+        # 1. 西暦入力 (横並び)
+        cy_start, cy_end = st.columns(2)
+        with cy_start:
+            st.number_input("開始年", 1970, today.year, key="start_year", on_change=_sync_yr_to_dt)
+        with cy_end:
+            st.number_input("終了年", 1970, today.year, key="end_year", on_change=_sync_yr_to_dt)
+
+        # 2. 日付入力 (横並び)
         c_start, c_end = st.columns(2)
         with c_start:
-            start_date = st.date_input("開始日", value=default_start,
+            start_date = st.date_input("開始日", key="start_date", on_change=_sync_dt_to_yr,
                                         min_value=datetime.date(1970, 1, 1))
         with c_end:
-            end_date = st.date_input("終了日", value=today,
+            end_date = st.date_input("終了日", key="end_date", on_change=_sync_dt_to_yr,
                                       min_value=datetime.date(1970, 1, 1))
 
         if start_date and end_date:
@@ -106,9 +127,8 @@ def main():
         else:
             analysis_years = 0
 
+        # 🎯 シグナル条件 (セパレーターで視認性を確保)
         st.divider()
-
-        # ── シグナル条件 ──────────────────────────────────────
         st.markdown("### 🎯 シグナル条件")
 
         # ── session_state 初期化（初回のみ）─────────────────
