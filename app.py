@@ -78,14 +78,18 @@ def main():
         )
         st.divider()
         st.markdown("### 📅 時間軸・取得期間")
-        iv_label    = st.selectbox("足種", list(INTERVAL_OPTIONS.keys()), index=1,
-                                   label_visibility="collapsed")
+        st.write("")
+        
+        col_iv1, col_iv2 = st.columns(2, vertical_alignment="bottom")
+        with col_iv1:
+            iv_label = st.selectbox("足種", list(INTERVAL_OPTIONS.keys()), index=1)
+        with col_iv2:
+            ma_period = st.number_input("MA期間", min_value=1, max_value=500, value=50, step=1)
+        
         iv          = INTERVAL_OPTIONS[iv_label]
         interval_yf = iv["yf"]
         unit        = iv["unit"]
-
-        ma_period = st.number_input("MA（移動平均）期間", min_value=1, max_value=500, value=50, step=1)
-        ma_label  = f"{ma_period}{iv['ma_suffix']}MA"
+        ma_label    = f"{ma_period}{iv['ma_suffix']}MA"
 
         # ── 📅 期間指定（西暦・日付連動） ──────────────────────
 
@@ -109,14 +113,16 @@ def main():
             st.session_state["end_year"]   = st.session_state["end_date"].year
 
         # 1. 西暦入力 (横並び)
-        cy_start, cy_end = st.columns(2)
+        st.markdown("<div style='margin-bottom:2px;'></div>", unsafe_allow_html=True)
+        cy_start, cy_end = st.columns(2, vertical_alignment="bottom")
         with cy_start:
             st.number_input("開始年", 1970, today.year, key="start_year", on_change=_sync_yr_to_dt)
         with cy_end:
             st.number_input("終了年", 1970, today.year, key="end_year", on_change=_sync_yr_to_dt)
 
         # 2. 日付入力 (横並び)
-        c_start, c_end = st.columns(2)
+        st.markdown("<div style='margin-bottom:2px;'></div>", unsafe_allow_html=True)
+        c_start, c_end = st.columns(2, vertical_alignment="bottom")
         with c_start:
             start_date = st.date_input("開始日", key="start_date", on_change=_sync_dt_to_yr,
                                         min_value=datetime.date(1970, 1, 1))
@@ -133,6 +139,7 @@ def main():
         # 🎯 シグナル条件 (セパレーターで視認性を確保)
         st.divider()
         st.markdown("### 🎯 シグナル条件")
+        st.markdown("<div style='margin-bottom:5px;'></div>", unsafe_allow_html=True)
 
         # ── session_state 初期化（初回のみ）─────────────────
         for _k, _v in [("chg_thr_val", -5.0), ("rsi_thr_val", 35.0), ("dev_thr_val", -10.0)]:
@@ -159,8 +166,8 @@ def main():
         _ca, _cb = st.columns([1, 9])
         use_chg = _ca.checkbox("", value=True, key="use_chg")
         _cb.markdown(
-            "<p style='margin:0;padding-top:5px;font-size:0.82rem;font-weight:700'>"
-            "\u9a30\u843d\u7387 \u95be\u5024 (%)</p>",
+            f"<p style='margin:0;padding-top:5px;font-size:0.82rem;font-weight:700'>"
+            f"前{unit}比騰落率 閾値 (%)</p>",
             unsafe_allow_html=True,
         )
         st.number_input(
@@ -266,8 +273,8 @@ def main():
             f"毎{unit}の積立額 ({sym})", 100, 10_000_000, 10_000, 1_000,
             help="DCA・シグナル戦略の毎周期の積立額")
         signal_bonus = st.number_input(
-            f"シグナル時の追加投資額 ({sym})", 0, 50_000_000, 50_000, 5_000,
-            help=f"シグナル点灯した{unit}のみ追加で投資する額")
+            f"シグナル時の買付額 ({sym})", 0, 50_000_000, 50_000, 5_000,
+            help=f"シグナル点灯した{unit}のみ買付を行う額")
 
         # ── 📐 チャート高さ比率 ──────────────────────────────────
         st.divider()
@@ -531,9 +538,9 @@ def main():
         x1, x2, x3 = st.columns(3)
         x1.metric("ROI差（シグナル − DCA）", f"{sr - dr:+.1f} pt",
                   help="シグナル戦略の ROI が DCA より何ポイント上か")
-        x2.metric("シグナル追加投資 累計", fmt(si - di, ticker, display_currency),
-                  help="シグナル点灯時の追加投資額の累計")
-        x3.metric("追加分による利益差", fmt((sv - si) - (dv - di), ticker, display_currency),
+        x2.metric("シグナル戦略 買付額", fmt(si - di, ticker, display_currency),
+                  help="シグナル点灯時に投資した金額の累計")
+        x3.metric("シグナル分による利益差", fmt((sv - si) - (dv - di), ticker, display_currency),
                   help="シグナル戦略の含み益 − DCA の含み益")
     else:
         st.info("シミュレーションデータが不足しています。取得期間を延ばしてください。")

@@ -56,7 +56,7 @@ div[data-baseweb="select"],
 div[data-baseweb="select"] > div,
 div[data-baseweb="select"] > div > div {
     background-color: #1E293B !important;
-    border: 1.5px solid #3B82F6 !important;
+    border: 1.5px solid #FFFFFF !important;
     border-radius: 6px !important;
 }
 div[data-baseweb="select"] *:not(svg):not(path) {
@@ -86,10 +86,11 @@ div[data-testid="stNumberInput"] input,
 div[data-testid="stDateInput"] input {
     background-color: #1E293B !important;
     color: #FFFFFF !important;
-    border: 1.5px solid #3B82F6 !important;
+    border: 1.5px solid #FFFFFF !important;
     border-radius: 6px !important;
     font-weight: 600 !important;
     caret-color: #FFFFFF !important;
+    height: 42px !important;
 }
 div[data-testid="stTextInput"] input::placeholder,
 div[data-testid="stNumberInput"] input::placeholder,
@@ -222,5 +223,24 @@ div[data-testid="stDataFrame"] canvas { filter: none !important; }
 div[data-testid="stDataFrame"] > div > div { background:#161B27 !important; }
 /* Fallback: force all text children white */
 div[data-testid="stDataFrame"] * { color:#E2E8F0 !important; }
+
+div[data-testid="stSidebar"] div[data-baseweb="select"] > div {
+    background-color: #1E293B !important;
+    color: #FFFFFF !important;
+    border: 1.5px solid #FFFFFF !important;
+    height: 42px !important;
+}
+/* ドロップダウンリスト内の文字色も白に固定 */
+div[data-baseweb="popover"] * { color: #FFFFFF !important; }
+
+/* 日付入力の白い外枠（影）を物理的に排除 */
+div[data-testid="stDateInput"] div[role="presentation"],
+div[data-testid="stDateInput"] > div > div {
+    box-shadow: none !important;
+    border: none !important;
+}
+div[data-testid="stDateInput"] input {
+    border-radius: 6px !important;
+}
 </style>
     """, unsafe_allow_html=True)
