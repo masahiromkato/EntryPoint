@@ -3,6 +3,37 @@ from plotly.subplots import make_subplots
 import pandas as pd
 import numpy as np
 
+
+# ── 色定数 ──────────────────────────────────────────────────
+BG      = "#0E1117"
+GRID    = "rgba(148,163,184,0.12)"
+AMBER   = "#F59E0B"
+BLUE    = "#60A5FA"
+PURPLE  = "#A855F7"
+GREEN   = "#4ADE80"
+RED     = "#F87171"
+INDIGO  = "#818CF8"
+
+# シグナル色（高彩度・枠線と非同化）
+SIG_MA_COLOR  = "#EF4444"  # レッド（MA乖離率）
+SIG_RSI_COLOR = "#A855F7"  # パープル（RSI）
+SIG_CHG_COLOR = "#00CED1"  # ターコイズ（騰落率）
+SIG_CMP_COLOR = "#F97316"  # オレンジ（複合）
+
+AX_F = dict(color="#64748B", size=11, family="Inter")
+TTL_F = dict(color="#7DD3FC", size=11, family="Inter")
+
+# 凡例スタイル（チャート内左側、年次ラベルの直下）
+LEG_BASE = dict(
+    bgcolor="rgba(11,18,34,0.88)",
+    bordercolor="rgba(59,130,246,0.25)",
+    borderwidth=1,
+    font=dict(size=10, color="#E2E8F0", family="Inter"),
+    orientation="v",
+    tracegroupgap=2,
+)
+
+
 def build_chart(
     df: pd.DataFrame,
     ticker: str,
@@ -12,40 +43,15 @@ def build_chart(
     dev_thr: float,
     rsi_thr: float,
     row_heights: list,
-    cond_mode: str
+    cond_mode: str,
+    show_annual_grid: bool = False,
 ) -> go.Figure:
 
     plot     = df.dropna(subset=["Close"])
     sig      = plot[plot["Signal"] == True]
-    has_ohlc = all(c in plot.columns for c in ["Open","High","Low"])
+    has_ohlc = all(c in plot.columns for c in ["Open", "High", "Low"])
 
-    BG     = "#0E1117"
-    GRID   = "rgba(148,163,184,0.055)"
-    SEP    = "rgba(59,130,246,0.25)"   # 境界線色
-    AMBER  = "#F59E0B"
-    BLUE   = "#60A5FA"
-    PURPLE = "#A855F7"
-    GREEN  = "#4ADE80"
-    RED    = "#F87171"
-    INDIGO = "#818CF8"
-
-    SIGNAL_MA_COLOR  = "#EF4444" # 赤（レッド）
-    SIGNAL_RSI_COLOR = "#A855F7" # 紫（パープル）
-    SIGNAL_CHG_COLOR = "#00CED1" # ターコイズブルー
-    SIGNAL_CMP_COLOR = "#F97316" # オレンジ (複合)
-
-    AX_F  = dict(color="#64748B", size=11, family="Inter")
-    TTL_F = dict(color="#7DD3FC", size=11, family="Inter")
-    LEG   = dict(
-        bgcolor="rgba(11,18,34,0.82)",
-        bordercolor="rgba(59,130,246,0.18)",
-        borderwidth=1,
-        font=dict(size=10, color="#E2E8F0", family="Inter"),
-        orientation="v",
-        tracegroupgap=2,
-    )
-
-    SPACING = 0.025
+    SPACING = 0.022
     fig = make_subplots(
         rows=3, cols=1,
         shared_xaxes=True,
@@ -53,7 +59,7 @@ def build_chart(
         row_heights=row_heights,
     )
 
-    # ── Row1: 株価チャート ──────────────────────────────
+    # ── Row1: 株価チャート ───────────────────────────────────
     if has_ohlc:
         fig.add_trace(go.Candlestick(
             x=plot.index, open=plot["Open"], high=plot["High"],
@@ -62,51 +68,148 @@ def build_chart(
             increasing_line_color=GREEN, decreasing_line_color=RED,
             increasing_fillcolor="rgba(74,222,128,0.27)",
             decreasing_fillcolor="rgba(248,113,113,0.27)",
-            legend="legend", whiskerwidth=0,
+            legendgroup="price", legend="legend", whiskerwidth=0,
         ), row=1, col=1)
     else:
         fig.add_trace(go.Scatter(
             x=plot.index, y=plot["Close"],
             name="終値", mode="lines",
-            line=dict(color=BLUE, width=1.8), legend="legend",
+            line=dict(color=BLUE, width=1.8),
+            legendgroup="price", legend="legend",
         ), row=1, col=1)
 
     ma_p = plot.dropna(subset=["MA_VAL"])
     fig.add_trace(go.Scatter(
         x=ma_p.index, y=ma_p["MA_VAL"],
         name=ma_label, mode="lines",
-        line=dict(color=AMBER, width=2, dash="dot"), legend="legend",
+        line=dict(color=AMBER, width=2, dash="dot"),
+        legendgroup="price", legend="legend",
     ), row=1, col=1)
 
-    # シグナルマーカー
+    # ── シグナルマーカー ─────────────────────────────────────
     if not sig.empty:
-        cnt = (sig["Sig_MA"].astype(int) + sig["Sig_RSI"].astype(int) + sig["Sig_CHG"].astype(int))
+        cnt = sig["Sig_MA"].astype(int) + sig["Sig_RSI"].astype(int) + sig["Sig_CHG"].astype(int)
+
         if cond_mode == "AND":
             groups = [
-                (sig[ sig["Sig_MA"] & ~sig["Sig_RSI"] & ~sig["Sig_CHG"]], SIGNAL_MA_COLOR, f"{ma_label}シグナル"),
-                (sig[~sig["Sig_MA"] &  sig["Sig_RSI"] & ~sig["Sig_CHG"]], SIGNAL_RSI_COLOR, "RSIシグナル"),
-                (sig[~sig["Sig_MA"] & ~sig["Sig_RSI"] &  sig["Sig_CHG"]], SIGNAL_CHG_COLOR, "騰落率シグナル"),
-                (sig[cnt >= 2], SIGNAL_CMP_COLOR, "複合シグナル"),
+                (sig[ sig["Sig_MA"] & ~sig["Sig_RSI"] & ~sig["Sig_CHG"]], SIG_MA_COLOR,  f"{ma_label}シグナル"),
+                (sig[~sig["Sig_MA"] &  sig["Sig_RSI"] & ~sig["Sig_CHG"]], SIG_RSI_COLOR, "RSIシグナル"),
+                (sig[~sig["Sig_MA"] & ~sig["Sig_RSI"] &  sig["Sig_CHG"]], SIG_CHG_COLOR, "騰落率シグナル"),
+                (sig[cnt >= 2],                                             SIG_CMP_COLOR, "複合シグナル"),
             ]
-        else: # OR時は複合シグナルを非表示にして、個別のものをそのまま描画
+        else:  # OR: 複合シグナルは不表示
             groups = [
-                (sig[sig["Sig_MA"]],  SIGNAL_MA_COLOR, f"{ma_label}シグナル"),
-                (sig[sig["Sig_RSI"]], SIGNAL_RSI_COLOR, "RSIシグナル"),
-                (sig[sig["Sig_CHG"]], SIGNAL_CHG_COLOR, "騰落率シグナル"),
+                (sig[sig["Sig_MA"]],  SIG_MA_COLOR,  f"{ma_label}シグナル"),
+                (sig[sig["Sig_RSI"]], SIG_RSI_COLOR, "RSIシグナル"),
+                (sig[sig["Sig_CHG"]], SIG_CHG_COLOR, "騰落率シグナル"),
             ]
 
         for sub_df, col, name in groups:
-            if sub_df.empty: continue
-            y_ref  = sub_df["Low"] if has_ohlc else sub_df["Close"]
+            if sub_df.empty:
+                continue
+            y_ref = sub_df["Low"] if has_ohlc else sub_df["Close"]
             fig.add_trace(go.Scatter(
                 x=sub_df.index, y=y_ref * 0.93,
                 mode="markers", name=name,
-                marker=dict(symbol="triangle-up", size=22, color=col, opacity=1.0,
-                            line=dict(color="#FFFFFF", width=2.5)),
-                legend="legend", hoverinfo="skip",
+                marker=dict(
+                    symbol="triangle-up", size=22, color=col, opacity=1.0,
+                    line=dict(color="#FFFFFF", width=2.5),
+                ),
+                legendgroup="price", legend="legend", hoverinfo="skip",
             ), row=1, col=1)
 
-    # ── Row2: RSI ────────────────────────────────────────
+    # ── 年次グリッド ─────────────────────────────────────────
+    # ラベルが物理的に重ならないよう、年数に応じてステップとフォントを自動調整
+    if show_annual_grid:
+        years     = sorted(plot.index.year.unique())
+        num_years = len(years)
+
+        # ── 表示間隔の自動計算 ──────────────────────────────
+        if num_years <= 15:
+            step = 1
+        elif num_years <= 30:
+            step = 2
+        elif num_years <= 50:
+            step = 5
+        else:
+            step = 10
+
+        # ── 表示年リスト確定（集計区間の計算に必要）────────
+        display_years = [y for i, y in enumerate(years)
+                         if i == 0 or (y % step == 0)]
+        num_labels = len(display_years)
+
+        # ── フォントサイズ: 表示ラベル数に応じて動的計算 ───
+        # display_years が少ないほど大きく、多いほど小さく
+        if num_labels <= 8:
+            ann_fontsize = 13
+        elif num_labels <= 15:
+            ann_fontsize = 11
+        elif num_labels <= 25:
+            ann_fontsize = 10
+        else:
+            ann_fontsize = 8
+
+        # ── スマート年号省略ヘルパー ────────────────────────
+        def _period_str(y_from: int, y_to: int) -> str:
+            """
+            同一年          : '2011'
+            同一世紀内複数年 : '2020-24' (後半2桁省略)
+            世紀跨ぎ複数年   : '1999-2002' (フル)
+            """
+            if step == 1 or y_from == y_to:
+                return f"<b>{y_from}</b>"
+            # 世紀が同じかどうか（例: 2000〜2099 は同一世紀）
+            if y_from // 100 == y_to // 100:
+                return f"<b>{y_from}-{y_to % 100:02d}</b>"  # :02d で "2020-04" 等ゼロ埋め
+            return f"<b>{y_from}-{y_to}</b>"
+
+        for idx, y in enumerate(display_years):
+            sub_yr = plot[plot.index.year == y]
+            if sub_yr.empty:
+                continue
+            first_day = sub_yr.index[0]
+
+            # ── 区間シグナル累計: 全ラベル合計 = チャート▽総数 ──
+            if "Signal" in df.columns:
+                y_from = y
+                y_to   = display_years[idx + 1] - 1 if idx + 1 < len(display_years) else years[-1]
+                mask   = (df.index.year >= y_from) & (df.index.year <= y_to)
+                num_signals = int(df.loc[mask, "Signal"].sum())
+            else:
+                y_to = y
+                num_signals = 0
+
+            # 期間文字列（スマート省略）
+            period_txt = _period_str(y, y_to)
+
+            # 垂直点線（全Row共通）
+            fig.add_vline(
+                x=first_day.timestamp() * 1000,
+                line=dict(color="rgba(255,255,255,0.15)", width=1, dash="dot"),
+                row="all", col=1,
+            )
+            # ラベル: paper 座標の最上端に固定 → ローソク足と不干渉
+            count_color = "#F59E0B" if num_signals > 0 else "rgba(255,255,255,0.45)"
+            cnt_fsize   = ann_fontsize + 2
+            fig.add_annotation(
+                x=first_day,
+                y=0.99,
+                yref="paper",
+                text=(
+                    f"{period_txt}<br>"
+                    f"<span style='color:{count_color};font-size:{cnt_fsize}px'>"
+                    f"<b>{num_signals}回</b></span>"
+                ),
+                showarrow=False,
+                font=dict(color="rgba(255,255,255,0.85)", size=ann_fontsize, family="Inter"),
+                xanchor="left",
+                yanchor="top",
+                bgcolor="rgba(0,0,0,0)",
+                align="left",
+            )
+
+    # ── Row2: RSI ───────────────────────────────────────────
     rp = plot.dropna(subset=["RSI"])
     fig.add_hrect(y0=0,  y1=rsi_thr, fillcolor="rgba(248,113,113,0.055)", line_width=0, row=2, col=1)
     fig.add_hrect(y0=70, y1=100,     fillcolor="rgba(74,222,128,0.055)",  line_width=0, row=2, col=1)
@@ -114,7 +217,7 @@ def build_chart(
         x=rp.index, y=rp["RSI"],
         name="RSI(14)", mode="lines",
         line=dict(color=INDIGO, width=1.6),
-        legend="legend2",
+        legendgroup="rsi", legend="legend2",
     ), row=2, col=1)
     fig.add_hline(y=rsi_thr, line=dict(color=AMBER, width=1.2, dash="dot"),
                   annotation_text=f"   閾値 {rsi_thr}",
@@ -123,57 +226,61 @@ def build_chart(
     fig.add_hline(y=30, line=dict(color=RED,   width=0.8, dash="dash"), row=2, col=1)
     fig.add_hline(y=70, line=dict(color=GREEN, width=0.8, dash="dash"), row=2, col=1)
 
-    # ── Row3: 累積資産推移 ───────────────────────────────
-    pv = plot.dropna(subset=["DCA_Val","Sig_Val"])
+    # ── Row3: 累積資産推移 ───────────────────────────────────
+    pv = plot.dropna(subset=["DCA_Val", "Sig_Val"])
     if not pv.empty:
         fig.add_trace(go.Scatter(
             x=pv.index, y=pv["DCA_Val"],
             name="DCA 資産額", mode="lines",
-            line=dict(color=BLUE,   width=2.2),
+            line=dict(color=BLUE, width=2.2),
             fill="tozeroy", fillcolor="rgba(96,165,250,0.06)",
-            legend="legend3",
+            legendgroup="port", legend="legend3",
         ), row=3, col=1)
         fig.add_trace(go.Scatter(
             x=pv.index, y=pv["Sig_Val"],
             name="シグナル戦略 資産額", mode="lines",
             line=dict(color=PURPLE, width=2.2),
             fill="tozeroy", fillcolor="rgba(168,85,247,0.06)",
-            legend="legend3",
+            legendgroup="port", legend="legend3",
         ), row=3, col=1)
         fig.add_trace(go.Scatter(
             x=pv.index, y=pv["DCA_Inv"],
             name="DCA 元本", mode="lines",
-            line=dict(color=BLUE,   width=1, dash="dot"), opacity=0.4,
-            legend="legend3",
+            line=dict(color=BLUE, width=1, dash="dot"), opacity=0.4,
+            legendgroup="port", legend="legend3",
         ), row=3, col=1)
         fig.add_trace(go.Scatter(
             x=pv.index, y=pv["Sig_Inv"],
             name="シグナル 元本", mode="lines",
             line=dict(color=PURPLE, width=1, dash="dot"), opacity=0.4,
-            legend="legend3",
+            legendgroup="port", legend="legend3",
         ), row=3, col=1)
 
-    # ── レイアウト ──────────────────────────────────────
+    # ── レイアウト ──────────────────────────────────────────
     domain1 = fig.layout.yaxis.domain
     domain2 = fig.layout.yaxis2.domain
     domain3 = fig.layout.yaxis3.domain
+    sep2_y = (domain1[0] + domain2[1]) / 2.0
+    sep1_y = (domain2[0] + domain3[1]) / 2.0
 
-    sep2_y = (domain1[0] + domain2[1]) / 2.0  # row1(上) と row2(中) の境界
-    sep1_y = (domain2[0] + domain3[1]) / 2.0  # row2(中) と row3(下) の境界
+    name_str  = f" ： {ticker_name}" if ticker_name else ""
+    title_txt = f"▌ 株価チャート {iv_label} ({ma_label}) {ticker}{name_str}"
 
     fig.update_layout(
         template="plotly_dark",
         paper_bgcolor=BG,
         plot_bgcolor=BG,
-        font=dict(family="Inter", size=12, color="#FFFFFF"), # グラフ内テキストも真っ白に
+        font=dict(family="Inter", size=12, color="#FFFFFF"),
         xaxis_rangeslider_visible=False,
         height=1080,
+        # 右マージン縮小（凡例をチャート内に戻す）
         margin=dict(l=70, r=18, t=50, b=28),
         hovermode="x unified",
-        hoverlabel=dict(bgcolor="rgba(14,17,23,0.9)", font_size=12, font_color="#FFFFFF",
-                        bordercolor="rgba(59,130,246,0.6)", align="left"),
-
-        # 境界線（太く鮮やかな青い実線）
+        hoverlabel=dict(
+            bgcolor="rgba(14,17,23,0.75)",   # 半透過でラベル下の要素が透けて見える
+            font_size=12, font_color="#FFFFFF",
+            bordercolor="rgba(59,130,246,0.6)", align="left",
+        ),
         shapes=[
             dict(type="line", xref="paper", yref="paper",
                  x0=0, x1=1, y0=sep1_y, y1=sep1_y,
@@ -182,19 +289,18 @@ def build_chart(
                  x0=0, x1=1, y0=sep2_y, y1=sep2_y,
                  line=dict(color="#3B82F6", width=2.5)),
         ],
-
-        # 各パネルの凡例（左上内側）
-        legend =dict(**LEG, x=0.01, y=0.99, xanchor="left", yanchor="top"),
-        legend2=dict(**LEG, x=0.01, y=domain2[1] - 0.01, xanchor="left", yanchor="top"),
-        legend3=dict(**LEG, x=0.01, y=domain3[1] - 0.01, xanchor="left", yanchor="top"),
+        # 凡例3つを左内側に配置 — 年次ラベル(y≈0.93付近まで)の直下から開始
+        legend =dict(**LEG_BASE, x=0.01, y=0.93, xanchor="left", yanchor="top"),
+        legend2=dict(**LEG_BASE, x=0.01, y=domain2[1] - 0.01, xanchor="left", yanchor="top"),
+        legend3=dict(**LEG_BASE, x=0.01, y=domain3[1] - 0.01, xanchor="left", yanchor="top"),
     )
 
     # チャートタイトル注釈
-    name_str = f" ： {ticker_name}" if ticker_name else ""
-    fig.add_annotation(text=f"▌ 株価チャート {iv_label} ({ma_label}) {ticker}{name_str}",
+    fig.add_annotation(text=title_txt,
                        xref="paper", yref="paper", x=0.0, y=1.01,
                        xanchor="left", yanchor="bottom",
-                       font=dict(size=13, color="#7DD3FC", family="Inter", weight="bold"), showarrow=False)
+                       font=dict(size=13, color="#7DD3FC", family="Inter", weight="bold"),
+                       showarrow=False)
     fig.add_annotation(text="▌ RSI (14)",
                        xref="paper", yref="paper", x=0.0, y=sep2_y + 0.005,
                        xanchor="left", yanchor="bottom",
@@ -205,10 +311,10 @@ def build_chart(
                        font=dict(size=11, color="#7DD3FC", family="Inter"), showarrow=False)
 
     # 軸設定
-    ax = dict(gridcolor=GRID, zerolinecolor=GRID, tickfont=AX_F, title_font=TTL_F, showgrid=True)
-    fig.update_yaxes(title_text="価格",  **ax, row=1, col=1)
-    fig.update_yaxes(title_text="RSI",  range=[0,100], **ax, row=2, col=1)
-    fig.update_yaxes(title_text="資産額",**ax, row=3, col=1)
+    ax  = dict(gridcolor=GRID, zerolinecolor=GRID, tickfont=AX_F, title_font=TTL_F, showgrid=True)
+    fig.update_yaxes(title_text="価格",   **ax, row=1, col=1)
+    fig.update_yaxes(title_text="RSI",    range=[0, 100], **ax, row=2, col=1)
+    fig.update_yaxes(title_text="資産額", **ax, row=3, col=1)
     xax = dict(gridcolor=GRID, tickfont=AX_F, showgrid=True)
     fig.update_xaxes(**xax, showticklabels=True,  row=1, col=1)
     fig.update_xaxes(**xax, showticklabels=False, row=2, col=1)
@@ -216,22 +322,116 @@ def build_chart(
 
     return fig
 
+
 def build_dev_chart(df: pd.DataFrame, dev_thr: float, ma_label: str) -> go.Figure:
     v      = df.dropna(subset=["DEV"])
-    colors = np.where(v["DEV"] < 0, "#F87171", "#4ADE80")
+    # ネオンカラー: プラス = 発光グリーン, マイナス = 発光レッド
+    colors = np.where(v["DEV"] < 0, "rgba(255,50,80,0.92)", "rgba(50,255,140,0.92)")
+    sig    = v[v["Sig_MA"] == True] if "Sig_MA" in v.columns else v.iloc[:0]
     fig    = go.Figure()
     fig.add_trace(go.Bar(x=v.index, y=v["DEV"], marker_color=colors, opacity=0.78, name=f"{ma_label}乖離率"))
-    fig.add_hline(y=dev_thr, line=dict(color="#F59E0B", width=1.5, dash="dash"),
+    if not sig.empty:
+        fig.add_trace(go.Scatter(
+            x=sig.index, y=sig["DEV"],
+            mode="markers", name=f"{ma_label}シグナル",
+            marker=dict(symbol="triangle-up", size=14, color=SIG_MA_COLOR,
+                        line=dict(color="#FFFFFF", width=1.8)),
+            hoverinfo="skip",
+        ))
+    fig.add_hline(y=dev_thr, line=dict(color="#F59E0B", width=2.5, dash="dash"),
                   annotation_text=f"閾値 {dev_thr}%", annotation_font_color="#F59E0B",
                   annotation_position="top right")
     fig.add_hline(y=0, line=dict(color="rgba(255,255,255,0.07)", width=1))
     fig.update_layout(
-        template="plotly_dark", paper_bgcolor="#0E1117", plot_bgcolor="#0E1117",
+        template="plotly_dark", paper_bgcolor=BG, plot_bgcolor=BG,
         font=dict(family="Inter", color="#94A3B8"),
-        title=dict(text=f"{ma_label}乖離率の推移", font=dict(color="#E2E8F0", size=13)),
-        height=285, margin=dict(l=65,r=18,t=42,b=18),
-        xaxis=dict(gridcolor="rgba(148,163,184,0.055)", tickfont=dict(color="#64748B")),
-        yaxis=dict(title="乖離率 (%)", gridcolor="rgba(148,163,184,0.055)", tickfont=dict(color="#64748B")),
-        showlegend=False,
+        title=dict(text=f"{ma_label}乖離率の推移（閾値: {dev_thr}%）", font=dict(color="#E2E8F0", size=13)),
+        height=285, margin=dict(l=65, r=18, t=42, b=18),
+        hovermode="x unified",
+        hoverlabel=dict(bgcolor="rgba(14,17,23,0.82)", font_color="#FFFFFF", font_size=11),
+        xaxis=dict(gridcolor=GRID, tickfont=AX_F),
+        yaxis=dict(title="乖離率 (%)", gridcolor=GRID, tickfont=AX_F),
+        showlegend=len(sig) > 0,
+        legend=dict(**{k: v for k, v in LEG_BASE.items() if k not in ("x", "xanchor")},
+                    x=0.01, xanchor="left", y=0.99, yanchor="top"),
+    )
+    return fig
+
+
+def build_rsi_detail_chart(df: pd.DataFrame, rsi_thr: float) -> go.Figure:
+    v   = df.dropna(subset=["RSI"])
+    sig = v[v["Sig_RSI"] == True] if "Sig_RSI" in v.columns else v.iloc[:0]
+    fig = go.Figure()
+    fig.add_hrect(y0=0,    y1=rsi_thr, fillcolor="rgba(248,113,113,0.06)", line_width=0)
+    fig.add_hrect(y0=70,   y1=100,     fillcolor="rgba(74,222,128,0.06)",  line_width=0)
+    fig.add_trace(go.Scatter(
+        x=v.index, y=v["RSI"],
+        name="RSI(14)", mode="lines",
+        line=dict(color=INDIGO, width=1.8),
+    ))
+    if not sig.empty:
+        fig.add_trace(go.Scatter(
+            x=sig.index, y=sig["RSI"],
+            mode="markers", name="RSIシグナル",
+            marker=dict(symbol="triangle-up", size=14, color=SIG_RSI_COLOR,
+                        line=dict(color="#FFFFFF", width=1.8)),
+            hoverinfo="skip",
+        ))
+    fig.add_hline(y=rsi_thr, line=dict(color=AMBER, width=1.5, dash="dash"),
+                  annotation_text=f"   閾値 {rsi_thr}", annotation_font_color=AMBER,
+                  annotation_position="top right")
+    fig.add_hline(y=30, line=dict(color=RED,   width=0.8, dash="dash"))
+    fig.add_hline(y=70, line=dict(color=GREEN, width=0.8, dash="dash"))
+    fig.update_layout(
+        template="plotly_dark", paper_bgcolor=BG, plot_bgcolor=BG,
+        font=dict(family="Inter", color="#94A3B8"),
+        title=dict(text=f"RSI(14) 詳細（閾値: {rsi_thr}）", font=dict(color="#E2E8F0", size=13)),
+        height=285, margin=dict(l=65, r=18, t=42, b=18),
+        hovermode="x unified",
+        hoverlabel=dict(bgcolor="rgba(14,17,23,0.82)", font_color="#FFFFFF", font_size=11),
+        xaxis=dict(gridcolor=GRID, tickfont=AX_F),
+        yaxis=dict(title="RSI", range=[0, 100], gridcolor=GRID, tickfont=AX_F),
+        showlegend=len(sig) > 0,
+        legend=dict(**{k: v for k, v in LEG_BASE.items() if k not in ("x", "xanchor")},
+                    x=0.01, xanchor="left", y=0.99, yanchor="top"),
+    )
+    return fig
+
+
+def build_chg_chart(df: pd.DataFrame, chg_thr: float, unit: str) -> go.Figure:
+    v      = df.dropna(subset=["PRICE_CHG"])
+    # ネオンカラー: プラス = 発光グリーン, マイナス = 発光レッド
+    colors = np.where(v["PRICE_CHG"] < 0, "rgba(255,50,80,0.92)", "rgba(50,255,140,0.92)")
+    sig    = v[v["Sig_CHG"] == True] if "Sig_CHG" in v.columns else v.iloc[:0]
+    fig    = go.Figure()
+    fig.add_trace(go.Bar(
+        x=v.index, y=v["PRICE_CHG"],
+        marker_color=colors, opacity=0.72,
+        name=f"前{unit}比騰落率",
+    ))
+    if not sig.empty:
+        fig.add_trace(go.Scatter(
+            x=sig.index, y=sig["PRICE_CHG"],
+            mode="markers", name="騰落率シグナル",
+            marker=dict(symbol="triangle-up", size=14, color=SIG_CHG_COLOR,
+                        line=dict(color="#FFFFFF", width=1.8)),
+            hoverinfo="skip",
+        ))
+    fig.add_hline(y=chg_thr, line=dict(color=AMBER, width=2.5, dash="dash"),
+                  annotation_text=f"   閾値 {chg_thr}%", annotation_font_color=AMBER,
+                  annotation_position="top left")
+    fig.add_hline(y=0, line=dict(color="rgba(255,255,255,0.07)", width=1))
+    fig.update_layout(
+        template="plotly_dark", paper_bgcolor=BG, plot_bgcolor=BG,
+        font=dict(family="Inter", color="#94A3B8"),
+        title=dict(text=f"前{unit}比 騰落率（閾値: {chg_thr}%）", font=dict(color="#E2E8F0", size=13)),
+        height=285, margin=dict(l=65, r=18, t=42, b=18),
+        hovermode="x unified",
+        hoverlabel=dict(bgcolor="rgba(14,17,23,0.82)", font_color="#FFFFFF", font_size=11),
+        xaxis=dict(gridcolor=GRID, tickfont=AX_F),
+        yaxis=dict(title=f"騰落率 (%)", gridcolor=GRID, tickfont=AX_F),
+        showlegend=len(sig) > 0,
+        legend=dict(**{k: v for k, v in LEG_BASE.items() if k not in ("x", "xanchor")},
+                    x=0.01, xanchor="left", y=0.99, yanchor="top"),
     )
     return fig
