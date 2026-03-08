@@ -148,8 +148,45 @@ div[data-testid="stMetricDelta"] svg  { display: none !important; }
 div[data-testid="stMetricDelta"] > div { font-size: 0.8rem !important; }
 
 /* ── アプリヘッダー ── */
-.app-header { padding: 0 !important; margin: 0 !important; margin-bottom: -1.5rem !important; margin-top: -4.5rem !important; }
+.app-header { padding: 0 !important; margin: 0 !important; margin-bottom: -1rem !important; margin-top: -4.5rem !important; }
 .app-header h1 { margin:0 !important; font-size:1.4rem !important; font-weight:800 !important; color:#FFFFFF !important; line-height: 1 !important; }
+
+/* ── 実行ボタン (st.form_submit_button) ── */
+button[kind="primaryFormSubmit"] {
+    background-color: #0066CC !important;
+    border: none !important;
+    color: #FFFFFF !important;
+    font-weight: 800 !important;
+    font-size: 0.95rem !important;
+    width: 100% !important;
+    margin-top: 0.5rem !important;
+    margin-bottom: 0.8rem !important;
+    border-radius: 8px !important;
+    height: 2.6rem !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+}
+button[kind="primaryFormSubmit"] p {
+    font-size: 1.1rem !important;
+    font-weight: 800 !important;
+}
+button[kind="primaryFormSubmit"]:hover {
+    background-color: #2563EB !important;
+}
+
+/* ── サイドバー・スティッキーヘッダー ── */
+/* 銘柄選択エリアを固定（st.form削除に伴う調整） */
+div[data-testid="stSidebar"] [data-testid="stVerticalBlock"] > div:first-child {
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 1000 !important;
+    background-color: #111827 !important; /* サイドバー背景色 */
+    padding-top: 10px !important;
+    padding-bottom: 15px !important;
+    margin-top: -10px !important;
+    border-bottom: 1.5px solid rgba(255,255,255,0.1) !important;
+}
 
 /* ── Tooltip ── */
 div[data-baseweb="tooltip"], div[data-baseweb="tooltip"] * {

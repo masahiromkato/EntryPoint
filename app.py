@@ -25,8 +25,31 @@ st.set_page_config(
 set_global_css()
 
 # =============================================================================
-# ユーティリティ
+# ユーティリティ & コールバック
 # =============================================================================
+def reset_run():
+    st.session_state["run_triggered"] = False
+
+def sync_start_year():
+    y = st.session_state["start_year"]
+    # 開始年が変更された場合は、1月1日にリセット（以前の仕様）
+    st.session_state["start_date"] = datetime.date(y, 1, 1)
+    reset_run()
+
+def sync_start_date():
+    st.session_state["start_year"] = st.session_state["start_date"].year
+    reset_run()
+
+def sync_end_year():
+    y = st.session_state["end_year"]
+    # 終了年が変更された場合は、12月31日にリセット（以前の仕様）
+    st.session_state["end_date"] = datetime.date(y, 12, 31)
+    reset_run()
+
+def sync_end_date():
+    st.session_state["end_year"] = st.session_state["end_date"].year
+    reset_run()
+
 def currency_symbol(ticker: str, display_currency: str) -> str:
     # 指数（^GSPC等）の場合は記号なし
     if ticker.startswith("^"):
@@ -68,37 +91,50 @@ def main():
     </div>
     """, unsafe_allow_html=True)
 
+    # ═══ 状態の初期化 ══════════════════════════════════════════
+    if "run_triggered" not in st.session_state:
+        st.session_state["run_triggered"] = False
+
     # ═══ サイドバー ══════════════════════════════════════════
     with st.sidebar:
-        # ── ティッカー ────────────────────────────────────────
-        st.markdown("### 📌 ティッカー")
-        mode = st.radio("入力方法", ["プリセット", "手動入力"],
-                        horizontal=True, label_visibility="collapsed")
-        if mode == "プリセット":
-            label  = st.selectbox("銘柄", list(PRESET_TICKERS.keys()),
-                                   label_visibility="collapsed")
-            ticker = PRESET_TICKERS[label]
-        else:
-            raw_ticker = st.text_input("ティッカー", value="",
-                                       placeholder="例: VOO / QQQ / 1321",
-                                       label_visibility="collapsed").strip().upper()
-            ticker = raw_ticker + ".T" if raw_ticker.isdigit() else raw_ticker
+        # 📌 スティッキーヘッダー（実行ボタン + 銘柄選択）
+        with st.container():
+            if st.button("実行", type="primary", use_container_width=True):
+                st.session_state["run_triggered"] = True
+            
+            # ── ティッカー ────────────────────────────────────────
+            st.markdown("### 📌 ティッカー")
+            mode = st.radio("入力方法", ["プリセット", "手動入力"],
+                            horizontal=True, label_visibility="collapsed",
+                            on_change=reset_run)
+            if mode == "プリセット":
+                label  = st.selectbox("銘柄", list(PRESET_TICKERS.keys()),
+                                       label_visibility="collapsed",
+                                       on_change=reset_run)
+                ticker = PRESET_TICKERS[label]
+            else:
+                raw_ticker = st.text_input("ティッカー", value="",
+                                           placeholder="例: VOO / QQQ / 1321",
+                                           label_visibility="collapsed",
+                                           on_change=reset_run).strip().upper()
+                ticker = raw_ticker + ".T" if raw_ticker.isdigit() else raw_ticker
 
-        ticker_name = fetch_ticker_name(ticker)
-        name_disp   = f" {ticker_name}" if ticker_name else ""
-        st.markdown(
-            f'選択中 &nbsp;<span class="ticker-badge">{name_disp.strip()}</span>',
-            unsafe_allow_html=True,
-        )
+            ticker_name = fetch_ticker_name(ticker)
+            name_disp   = f" {ticker_name}" if ticker_name else ""
+            st.markdown(
+                f'選択中 &nbsp;<span class="ticker-badge">{name_disp.strip()}</span>',
+                unsafe_allow_html=True,
+            )
+        
         st.divider()
         st.markdown("### 📅 時間軸・取得期間")
         st.write("")
         
         col_iv1, col_iv2 = st.columns(2, vertical_alignment="bottom")
         with col_iv1:
-            iv_label = st.selectbox("足種", list(INTERVAL_OPTIONS.keys()), index=1)
+            iv_label = st.selectbox("足種", list(INTERVAL_OPTIONS.keys()), index=1, on_change=reset_run)
         with col_iv2:
-            ma_period = st.number_input("MA期間", min_value=1, max_value=500, value=50, step=1)
+            ma_period = st.number_input("MA期間", min_value=1, max_value=500, value=50, step=1, on_change=reset_run)
         
         iv          = INTERVAL_OPTIONS[iv_label]
         interval_yf = iv["yf"]
@@ -106,43 +142,33 @@ def main():
         ma_label    = f"{ma_period}{iv['ma_suffix']}MA"
 
         # ── 📅 期間指定（西暦・日付連動） ──────────────────────
-
         today         = datetime.date.today()
         default_start = today - datetime.timedelta(days=365 * 10)
 
-        # session_state 初期化
         if "start_date" not in st.session_state: st.session_state["start_date"] = default_start
         if "end_date"   not in st.session_state: st.session_state["end_date"]   = today
         if "start_year" not in st.session_state: st.session_state["start_year"] = default_start.year
         if "end_year"   not in st.session_state: st.session_state["end_year"]   = today.year
 
-        # コールバック: 年入力 -> 日付反映
-        def _sync_yr_to_dt():
-            st.session_state["start_date"] = datetime.date(st.session_state["start_year"], 1, 1)
-            st.session_state["end_date"]   = datetime.date(st.session_state["end_year"], 12, 31)
-
-        # コールバック: 日付変更 -> 年反映
-        def _sync_dt_to_yr():
-            st.session_state["start_year"] = st.session_state["start_date"].year
-            st.session_state["end_year"]   = st.session_state["end_date"].year
-
         # 1. 西暦入力 (横並び)
         st.markdown("<div style='margin-bottom:2px;'></div>", unsafe_allow_html=True)
         cy_start, cy_end = st.columns(2, vertical_alignment="bottom")
         with cy_start:
-            st.number_input("開始年", 1970, today.year, key="start_year", on_change=_sync_yr_to_dt)
+            st.number_input("開始年", 1970, today.year, key="start_year", on_change=sync_start_year)
         with cy_end:
-            st.number_input("終了年", 1970, today.year, key="end_year", on_change=_sync_yr_to_dt)
+            st.number_input("終了年", 1970, today.year, key="end_year", on_change=sync_end_year)
 
         # 2. 日付入力 (横並び)
         st.markdown("<div style='margin-bottom:2px;'></div>", unsafe_allow_html=True)
         c_start, c_end = st.columns(2, vertical_alignment="bottom")
         with c_start:
-            start_date = st.date_input("開始日", key="start_date", on_change=_sync_dt_to_yr,
-                                        min_value=datetime.date(1970, 1, 1))
+            start_date = st.date_input("開始日", key="start_date",
+                                        min_value=datetime.date(1970, 1, 1),
+                                        on_change=sync_start_date)
         with c_end:
-            end_date = st.date_input("終了日", key="end_date", on_change=_sync_dt_to_yr,
-                                      min_value=datetime.date(1970, 1, 1))
+            end_date = st.date_input("終了日", key="end_date",
+                                      min_value=datetime.date(1970, 1, 1),
+                                      on_change=sync_end_date)
 
         if start_date and end_date:
             analysis_years = (end_date - start_date).days / 365.25
@@ -159,7 +185,10 @@ def main():
         init_vals = {
             "chg_thr_num": 5.0,
             "rsi_thr_num": 35.0,
-            "dev_thr_num": 10.0
+            "dev_thr_num": 10.0,
+            "use_chg": True,
+            "use_rsi": False,
+            "use_ma": False
         }
         for _k, _v in init_vals.items():
             if _k not in st.session_state:
@@ -167,51 +196,44 @@ def main():
 
         # ── 3カラム構成の集約レイアウト ──────────────────────
         col_spec = [0.7, 2.0, 4.3]
-
         # 1. 騰落率
         _c1, _c2, _c3 = st.columns(col_spec, vertical_alignment="center")
-        use_chg = _c1.checkbox("", value=True, key="use_chg")
+        use_chg = _c1.checkbox("", key="use_chg", on_change=reset_run)
         _c2.markdown("<p style='margin:0;font-size:0.85rem;font-weight:700;'>騰落率</p>", unsafe_allow_html=True)
-        st.session_state["chg_thr_num"] = _c3.number_input(
+        chg_thr_num = _c3.number_input(
             "chg_num", min_value=0.01, max_value=20.0, step=1.0, format="%.2f",
-            disabled=not use_chg, key="chg_thr_num_disp",
-            value=st.session_state["chg_thr_num"],
-            label_visibility="collapsed"
+            disabled=not use_chg, key="chg_thr_num",
+            label_visibility="collapsed", on_change=reset_run
         )
-        chg_thr = -st.session_state["chg_thr_num"] # 内部的に負の値へ
+        chg_thr = -chg_thr_num # 内部的に負の値へ
 
         # 2. RSI(14)
         _c1, _c2, _c3 = st.columns(col_spec, vertical_alignment="center")
-        use_rsi = _c1.checkbox("", value=False, key="use_rsi")
+        use_rsi = _c1.checkbox("", key="use_rsi", on_change=reset_run)
         _c2.markdown("<p style='margin:0;font-size:0.85rem;font-weight:700;'>RSI(14)</p>", unsafe_allow_html=True)
-        st.session_state["rsi_thr_num"] = _c3.number_input(
+        rsi_thr = _c3.number_input(
             "rsi_num", min_value=15.0, max_value=85.0, step=1.0, format="%.2f",
-            disabled=not use_rsi, key="rsi_thr_num_disp",
-            value=st.session_state["rsi_thr_num"],
-            label_visibility="collapsed"
+            disabled=not use_rsi, key="rsi_thr_num",
+            label_visibility="collapsed", on_change=reset_run
         )
-        rsi_thr = st.session_state["rsi_thr_num"]
 
         # 3. MA乖離
         _c1, _c2, _c3 = st.columns(col_spec, vertical_alignment="center")
-        use_ma = _c1.checkbox("", value=False, key="use_ma")
+        use_ma = _c1.checkbox("", key="use_ma", on_change=reset_run)
         _c2.markdown("<p style='margin:0;font-size:0.85rem;font-weight:700;'>MA乖離</p>", unsafe_allow_html=True)
-        st.session_state["dev_thr_num"] = _c3.number_input(
+        dev_thr_num = _c3.number_input(
             "dev_num", min_value=0.01, max_value=30.0, step=1.0, format="%.2f",
-            disabled=not use_ma, key="dev_thr_num_disp",
-            value=st.session_state["dev_thr_num"],
-            label_visibility="collapsed"
+            disabled=not use_ma, key="dev_thr_num",
+            label_visibility="collapsed", on_change=reset_run
         )
-        dev_thr = -st.session_state["dev_thr_num"] # 内部的に負の値へ
+        dev_thr = -dev_thr_num # 内部的に負の値へ
 
         st.markdown("<div style='margin-bottom:8px;'></div>", unsafe_allow_html=True)
-
-        # 🧩 条件の組み合わせ
         cond_raw  = st.radio("条件の組み合わせ",
                              ["OR（いずれか一つ）", "AND（すべて同時）"],
                              index=0 if st.session_state.get("cond_mode_val", "OR") == "OR" else 1,
                              help="OR = 感度高。AND = 確度高。",
-                             label_visibility="collapsed")
+                             label_visibility="collapsed", on_change=reset_run)
         cond_mode = "OR" if "OR" in cond_raw else "AND"
         st.session_state["cond_mode_val"] = cond_mode
 
@@ -220,40 +242,40 @@ def main():
         st.markdown("### 💱 表示設定")
         is_native_jpy   = ticker in JPY_TICKERS
         display_currency = st.radio(
-            "表示通貨",
-            ["USD", "JPY"],
-            horizontal=True,
-            disabled=is_native_jpy,
-            help="JPY選択時：USD建て銘柄を当日のドル円レートで円換算します。日本株ETFは常にJPY表示です。",
-            label_visibility="collapsed",
+            "表示通貨", ["USD", "JPY"],
+            horizontal=True, disabled=is_native_jpy,
+            help="JPY選択時：USD建て銘柄を当日のドル円レートで円換算します。",
+            label_visibility="collapsed", on_change=reset_run
         )
-        if is_native_jpy:
-            display_currency = "JPY"
-        show_annual_grid = st.checkbox("年次グリッドを表示", value=True)
+        if is_native_jpy: display_currency = "JPY"
+        show_annual_grid = st.checkbox("年次グリッドを表示", value=True, on_change=reset_run)
 
         # ── 💰 積立シミュレーション ──────────────────────────────
         st.divider()
         sym = "¥" if display_currency == "JPY" or is_native_jpy else "$"
         st.markdown("### 💰 積立シミュレーション")
         periodic_invest = st.number_input(
-            f"毎{unit}の積立額 ({sym})", 100, 10_000_000, 10_000, 1_000,
-            help="DCA・シグナル戦略の毎周期の積立額")
+            f"毎{unit}の積立額 ({sym})", 100, 10_000_000, 10_000, 1_000, on_change=reset_run)
         signal_bonus = st.number_input(
-            f"シグナル時の買付額 ({sym})", 0, 50_000_000, 50_000, 5_000,
-            help=f"シグナル点灯した{unit}のみ買付を行う額")
+            f"シグナル時の買付額 ({sym})", 0, 50_000_000, 50_000, 5_000, on_change=reset_run)
 
         # ── 📐 チャート高さ比率 ──────────────────────────────────
         st.divider()
         st.markdown("### 📐 チャート高さ比率")
-        h_price = st.slider("株価チャート", 10, 80, 65, 5, help="上段（株価）の高さ比率")
-        h_rsi   = st.slider("RSIチャート",  5,  40, 20, 5, help="中段（RSI）の高さ比率")
-        h_port  = st.slider("資産推移",     5,  50, 15, 5, help="下段（ポートフォリオ）の高さ比率")
+        h_price = st.slider("株価チャート", 10, 80, 65, 5, on_change=reset_run)
+        h_rsi   = st.slider("RSIチャート",  5,  40, 20, 5, on_change=reset_run)
+        h_port  = st.slider("資産推移",     5,  50, 15, 5, on_change=reset_run)
         total_h     = h_price + h_rsi + h_port
         row_heights = [h_price/total_h, h_rsi/total_h, h_port/total_h]
 
         st.divider()
         st.caption(f"RSI計算: {'pandas_ta' if PANDAS_TA_AVAILABLE else '手動実装（フォールバック）'}")
         st.caption("データ: Yahoo Finance（最大24時間キャッシュ）")
+
+    # ═══ メイン解析・表示の実行ガード ════════════════════════
+    if not st.session_state["run_triggered"]:
+        st.info("👈 設定を調整し、サイドバー上部の「実行」ボタンを押すと解析を開始します。", icon="ℹ️")
+        st.stop()
 
     # ═══ データ取得 ════════════════════════════════════════════
     buffer_days = (
