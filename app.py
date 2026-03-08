@@ -43,6 +43,20 @@ def fmt(val: float, ticker: str, display_currency: str) -> str:
     if av >= 1_000:         return f"{s}{val:,.0f}" if ticker.startswith("^") else f"{s}{val/1_000:.1f}K"
     return f"{s}{val:,.2f}" if ticker.startswith("^") else f"{s}{val:,.2f}"
 
+def render_custom_metric(label, value, delta=None, color_class="val-sky"):
+    """
+    Renders a custom HTML metric block that matches the design of st.metric
+    but allows for precise color control.
+    """
+    delta_html = f'<div class="custom-metric-delta">{delta}</div>' if delta else ""
+    st.markdown(f"""
+        <div class="custom-metric-container">
+            <div class="custom-metric-label">{label}</div>
+            <div class="custom-metric-value {color_class}">{value}</div>
+            {delta_html}
+        </div>
+    """, unsafe_allow_html=True)
+
 # =============================================================================
 # メインアプリ
 # =============================================================================
@@ -141,106 +155,58 @@ def main():
         st.markdown("### 🎯 シグナル条件")
         st.markdown("<div style='margin-bottom:5px;'></div>", unsafe_allow_html=True)
 
-        # ── session_state 初期化（初回のみ）─────────────────
-        init_values = [
-            ("chg_thr_val", -5.0), ("chg_thr_num", 5.0), ("chg_thr_sld", -5.0),
-            ("rsi_thr_val", 35.0), ("rsi_thr_num", 35.0), ("rsi_thr_sld", 35.0),
-            ("dev_thr_val", -10.0), ("dev_thr_num", 10.0), ("dev_thr_sld", -10.0)
-        ]
-        for _k, _v in init_values:
+        # ── session_state 初期化（シンプル化）─────────────────
+        init_vals = {
+            "chg_thr_num": 5.0,
+            "rsi_thr_num": 35.0,
+            "dev_thr_num": 10.0
+        }
+        for _k, _v in init_vals.items():
             if _k not in st.session_state:
                 st.session_state[_k] = _v
 
-        # callback: number_input -> slider
-        def _sync_from_num(val_key: str, num_key: str, sld_key: str, force_neg: bool = False):
-            v_num = float(st.session_state[num_key])
-            v_internal = -v_num if force_neg else v_num
-            st.session_state[val_key] = round(v_internal, 2)
-            st.session_state[sld_key] = round(v_internal, 2)
+        # ── 3カラム構成の集約レイアウト ──────────────────────
+        col_spec = [0.7, 2.0, 4.3]
 
-        # callback: slider -> number_input
-        def _sync_from_sld(val_key: str, num_key: str, sld_key: str, force_neg: bool = False):
-            v_sld = float(st.session_state[sld_key])
-            v_num = abs(v_sld) if force_neg else v_sld
-            st.session_state[val_key] = round(v_sld, 2)
-            st.session_state[num_key] = round(v_num, 2)
+        # 1. 騰落率
+        _c1, _c2, _c3 = st.columns(col_spec, vertical_alignment="center")
+        use_chg = _c1.checkbox("", value=True, key="use_chg")
+        _c2.markdown("<p style='margin:0;font-size:0.85rem;font-weight:700;'>騰落率</p>", unsafe_allow_html=True)
+        st.session_state["chg_thr_num"] = _c3.number_input(
+            "chg_num", min_value=0.01, max_value=20.0, step=1.0, format="%.2f",
+            disabled=not use_chg, key="chg_thr_num_disp",
+            value=st.session_state["chg_thr_num"],
+            label_visibility="collapsed"
+        )
+        chg_thr = -st.session_state["chg_thr_num"] # 内部的に負の値へ
 
-        # CHG (price change vs prev bar)
-        _ca, _cb = st.columns([1, 9])
-        use_chg = _ca.checkbox("", value=True, key="use_chg")
-        _cb.markdown(
-            f"<p style='margin:0;padding-top:5px;font-size:0.82rem;font-weight:700'>"
-            f"前{unit}比騰落率 閾値 (%)</p>",
-            unsafe_allow_html=True,
+        # 2. RSI(14)
+        _c1, _c2, _c3 = st.columns(col_spec, vertical_alignment="center")
+        use_rsi = _c1.checkbox("", value=False, key="use_rsi")
+        _c2.markdown("<p style='margin:0;font-size:0.85rem;font-weight:700;'>RSI(14)</p>", unsafe_allow_html=True)
+        st.session_state["rsi_thr_num"] = _c3.number_input(
+            "rsi_num", min_value=15.0, max_value=85.0, step=1.0, format="%.2f",
+            disabled=not use_rsi, key="rsi_thr_num_disp",
+            value=st.session_state["rsi_thr_num"],
+            label_visibility="collapsed"
         )
-        st.number_input(
-            "chg_num", min_value=0.01, max_value=20.0, step=0.01, format="%.2f",
-            disabled=not use_chg, key="chg_thr_num",
-            on_change=_sync_from_num,
-            kwargs=dict(val_key="chg_thr_val", num_key="chg_thr_num",
-                        sld_key="chg_thr_sld", force_neg=True),
-            label_visibility="collapsed",
-        )
-        st.slider(
-            "chg_sld", -20.0, -0.01, step=0.01,
-            disabled=not use_chg, key="chg_thr_sld",
-            on_change=_sync_from_sld,
-            kwargs=dict(val_key="chg_thr_val", num_key="chg_thr_num", sld_key="chg_thr_sld", force_neg=True),
-            label_visibility="collapsed",
-        )
-        chg_thr = float(st.session_state["chg_thr_val"])
+        rsi_thr = st.session_state["rsi_thr_num"]
 
-        # RSI
-        _ra, _rb = st.columns([1, 9])
-        use_rsi = _ra.checkbox("", value=False, key="use_rsi")
-        _rb.markdown(
-            "<p style='margin:0;padding-top:5px;font-size:0.82rem;font-weight:700'>"
-            "RSI(14) \u95be\u5024</p>",
-            unsafe_allow_html=True,
+        # 3. MA乖離
+        _c1, _c2, _c3 = st.columns(col_spec, vertical_alignment="center")
+        use_ma = _c1.checkbox("", value=False, key="use_ma")
+        _c2.markdown("<p style='margin:0;font-size:0.85rem;font-weight:700;'>MA乖離</p>", unsafe_allow_html=True)
+        st.session_state["dev_thr_num"] = _c3.number_input(
+            "dev_num", min_value=0.01, max_value=30.0, step=1.0, format="%.2f",
+            disabled=not use_ma, key="dev_thr_num_disp",
+            value=st.session_state["dev_thr_num"],
+            label_visibility="collapsed"
         )
-        st.number_input(
-            "rsi_num", min_value=15.0, max_value=85.0, step=0.01, format="%.2f",
-            disabled=not use_rsi, key="rsi_thr_num",
-            on_change=_sync_from_num,
-            kwargs=dict(val_key="rsi_thr_val", num_key="rsi_thr_num",
-                        sld_key="rsi_thr_sld", force_neg=False),
-            label_visibility="collapsed",
-        )
-        st.slider(
-            "rsi_sld", 15.0, 85.0, step=0.01,
-            disabled=not use_rsi, key="rsi_thr_sld",
-            on_change=_sync_from_sld,
-            kwargs=dict(val_key="rsi_thr_val", num_key="rsi_thr_num", sld_key="rsi_thr_sld"),
-            label_visibility="collapsed",
-        )
-        rsi_thr = float(st.session_state["rsi_thr_val"])
+        dev_thr = -st.session_state["dev_thr_num"] # 内部的に負の値へ
 
-        # MA deviation
-        _da, _db = st.columns([1, 9])
-        use_ma = _da.checkbox("", value=False, key="use_ma")
-        _db.markdown(
-            f"<p style='margin:0;padding-top:5px;font-size:0.82rem;font-weight:700'>"
-            f"{ma_label}\u4e56\u96e2\u7387 \u95be\u5024 (%)</p>",
-            unsafe_allow_html=True,
-        )
-        st.number_input(
-            "dev_num", min_value=0.01, max_value=30.0, step=0.01, format="%.2f",
-            disabled=not use_ma, key="dev_thr_num",
-            on_change=_sync_from_num,
-            kwargs=dict(val_key="dev_thr_val", num_key="dev_thr_num",
-                        sld_key="dev_thr_sld", force_neg=True),
-            label_visibility="collapsed",
-        )
-        st.slider(
-            "dev_sld", -30.0, -0.01, step=0.01,
-            disabled=not use_ma, key="dev_thr_sld",
-            on_change=_sync_from_sld,
-            kwargs=dict(val_key="dev_thr_val", num_key="dev_thr_num", sld_key="dev_thr_sld", force_neg=True),
-            label_visibility="collapsed",
-        )
-        dev_thr = float(st.session_state["dev_thr_val"])
+        st.markdown("<div style='margin-bottom:8px;'></div>", unsafe_allow_html=True)
 
-        # 🧩 条件の組み合わせ（シグナル条件内に統合 ── 余分なラベル・余白を排除）
+        # 🧩 条件の組み合わせ
         cond_raw  = st.radio("条件の組み合わせ",
                              ["OR（いずれか一つ）", "AND（すべて同時）"],
                              index=0 if st.session_state.get("cond_mode_val", "OR") == "OR" else 1,
@@ -353,27 +319,32 @@ def main():
 
     # ═══ メトリクス行 ═════════════════════════════════════════
     c1, c2, c3, c4, c5, c6 = st.columns(6)
-    with c1: st.metric("現在値", f"{csym}{latest:,.2f}")
-    with c2: st.metric(ma_label, f"{csym}{ma_last:,.2f}" if ma_last else "計算中…")
+    
+    # 騰落率と乖離率のカラー判定 (Green if > 0, Red if < 0, Sky if 0)
+    chg_color = "val-green" if (chg_last or 0) > 0 else "val-red" if (chg_last or 0) < 0 else "val-sky"
+    dev_color = "val-green" if (dev_last or 0) > 0 else "val-red" if (dev_last or 0) < 0 else "val-sky"
+
+    with c1: render_custom_metric("現在値", f"{csym}{latest:,.2f}")
+    with c2: render_custom_metric(ma_label, f"{csym}{ma_last:,.2f}" if ma_last else "計算中…")
     with c3:
         if chg_last is not None:
-            st.metric(f"前{unit}比騰落率", f"{chg_last:+.2f}%",
-                      delta=f"閾値:{chg_thr}%", delta_color="off")
+            render_custom_metric(f"前{unit}比騰落率", f"{chg_last:+.2f}%", 
+                                 delta=f"閾値:{chg_thr}%", color_class=chg_color)
         else:
-            st.metric(f"前{unit}比騰落率", "計算中…")
+            render_custom_metric(f"前{unit}比騰落率", "計算中…")
     with c4:
         if rsi_last is not None:
-            st.metric("RSI(14)", f"{rsi_last:.1f}", delta=f"閾値:{rsi_thr}", delta_color="off")
+            render_custom_metric("RSI(14)", f"{rsi_last:.1f}", delta=f"閾値:{rsi_thr}")
         else:
-            st.metric("RSI(14)", "計算中…")
+            render_custom_metric("RSI(14)", "計算中…")
     with c5:
         if dev_last is not None:
-            st.metric(f"{ma_label}乖離率", f"{dev_last:+.1f}%",
-                      delta=f"閾値:{dev_thr}%", delta_color="off")
+            render_custom_metric(f"{ma_label}乖離率", f"{dev_last:+.1f}%", 
+                                 delta=f"閾値:{dev_thr}%", color_class=dev_color)
         else:
-            st.metric(f"{ma_label}乖離率", "計算中…")
+            render_custom_metric(f"{ma_label}乖離率", "計算中…")
     with c6:
-        st.metric("累計シグナル数", f"{sig_count} 回")
+        render_custom_metric("累計シグナル数", f"{sig_count} 回", color_class="val-amber")
 
     # シグナルランプ
     lamp = ('<span class="lamp lamp-on"><span class="dot dot-on"></span>🔴 現在シグナル点灯中！</span>'

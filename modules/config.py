@@ -51,37 +51,38 @@ section[data-testid="stSidebar"] > div:first-child {
 }
 section[data-testid="stSidebar"] * { color: #FFFFFF !important; }
 
-/* ── Selectbox 白飛び根絶 ── */
-div[data-baseweb="select"],
-div[data-baseweb="select"] > div,
-div[data-baseweb="select"] > div > div {
+/* ── Selectbox 2重線解消 & スリム青枠 ── */
+div[data-baseweb="select"] {
+    border: none !important;
+    box-shadow: none !important;
+}
+div[data-baseweb="select"] > div {
     background-color: #1E293B !important;
+    color: #FFFFFF !important;
     border: 1.5px solid #FFFFFF !important;
     border-radius: 6px !important;
+    box-shadow: none !important;
+    height: 42px !important;
 }
 div[data-baseweb="select"] *:not(svg):not(path) {
     color: #FFFFFF !important;
     background-color: transparent !important;
-}
-div[data-baseweb="popover"],
-div[data-baseweb="popover"] *:not(svg):not(path),
-ul[data-baseweb="menu"] *:not(svg):not(path),
-li[data-baseweb="menu-item"],
-li[data-baseweb="menu-item"] *:not(svg):not(path) {
-    background-color: #1E293B !important;
-    color: #F8FAFC !important;
-}
-li[data-baseweb="menu-item"]:hover,
-li[data-baseweb="menu-item"]:hover *:not(svg):not(path),
-li[data-baseweb="menu-item"][aria-selected="true"],
-li[data-baseweb="menu-item"][aria-selected="true"] *:not(svg):not(path) {
-    background-color: #3B82F6 !important;
-    color: #FFFFFF !important;
+    outline: none !important;
+    box-shadow: none !important;
 }
 div[data-baseweb="select"] svg { color: #94A3B8 !important; }
 
 /* ── Text / Number / Date Input 白文字 ── */
-div[data-testid="stTextInput"] input,
+div[data-testid="stTextInput"] input {
+    background-color: #1E293B !important;
+    color: #FFFFFF !important;
+    border: 1.5px solid #FFFFFF !important;
+    border-radius: 6px !important;
+    font-weight: 600 !important;
+    caret-color: #FFFFFF !important;
+    height: 42px !important;
+    text-align: left !important;
+}
 div[data-testid="stNumberInput"] input,
 div[data-testid="stDateInput"] input {
     background-color: #1E293B !important;
@@ -91,30 +92,58 @@ div[data-testid="stDateInput"] input {
     font-weight: 600 !important;
     caret-color: #FFFFFF !important;
     height: 42px !important;
+    text-align: right !important;
 }
 div[data-testid="stTextInput"] input::placeholder,
 div[data-testid="stNumberInput"] input::placeholder,
 div[data-testid="stDateInput"] input::placeholder { color: #94A3B8 !important; }
-div[data-testid="stNumberInput"] button { background:#1E3A5F !important; color:#E2E8F0 !important; }
+div[data-testid="stNumberInput"] button { background:#1E3A5F !important; color:#E2E8F0 !important; height: 42px !important; }
 
 /* ── サイドバーラベル ── */
 section[data-testid="stSidebar"] label {
     font-size: 0.75rem !important;
     font-weight: 700 !important;
     text-transform: uppercase !important;
-    letter-spacing: 0.06em !important;
+    margin-top: 0 !important;
+    margin-bottom: 2px !important;
 }
 div[data-testid="stCheckbox"] label { text-transform: none !important; letter-spacing: 0 !important; font-size: 0.85rem !important; }
 
 /* ── メトリクスカード ── */
-div[data-testid="metric-container"] {
-    background-color: #1B2537 !important;
-    border: 1px solid rgba(59,130,246,0.3) !important;
-    border-radius: 10px !important;
-    padding: 0.65rem 0.9rem !important;
+div[data-testid="metric-container"], .custom-metric-container {
+    background-color: transparent !important;
+    border: none !important;
+    padding: 0.65rem 0.2rem !important;
+    display: flex;
+    flex-direction: column;
 }
-div[data-testid="metric-container"] * { color: #FFFFFF !important; }
-div[data-testid="stMetricValue"] > div { font-size:1.35rem !important; font-weight:800 !important; }
+.custom-metric-label {
+    color: #FFFFFF !important;
+    margin-bottom: 0.1rem !important;
+}
+.custom-metric-value {
+    font-size: 1.6rem !important;
+    font-weight: 800 !important;
+}
+.custom-metric-delta {
+    font-size: 0.8rem !important;
+    color: #94A3B8 !important;
+}
+.val-sky   { color: #7DD3FC !important; }
+.val-green { color: #39FF14 !important; }
+.val-red   { color: #FF3131 !important; }
+.val-amber { color: #F59E0B !important; }
+
+div[data-testid="stMetricLabel"] > div,
+div[data-testid="stMetricLabel"] * { 
+    color: #FFFFFF !important; 
+}
+div[data-testid="stMetricValue"] > div,
+div[data-testid="stMetricValue"] * { 
+    color: #7DD3FC !important; 
+    font-size: 1.35rem !important; 
+    font-weight: 800 !important; 
+}
 div[data-testid="stMetricDelta"] svg  { display: none !important; }
 div[data-testid="stMetricDelta"] > div { font-size: 0.8rem !important; }
 
@@ -164,6 +193,8 @@ div[data-testid="stNumberInput"],
 div[data-testid="stRadio"] {
     margin-bottom: 0 !important;
     margin-top: 0 !important;
+    padding-bottom: 0 !important;
+    padding-top: 0 !important;
 }
 
 /* 見出し（H3）の余白リセット（負のマージン廃止） */
@@ -224,13 +255,22 @@ div[data-testid="stDataFrame"] > div > div { background:#161B27 !important; }
 /* Fallback: force all text children white */
 div[data-testid="stDataFrame"] * { color:#E2E8F0 !important; }
 
-div[data-testid="stSidebar"] div[data-baseweb="select"] > div {
+/* ドロップダウンPopover */
+div[data-baseweb="popover"],
+div[data-baseweb="popover"] *:not(svg):not(path),
+ul[data-baseweb="menu"] *:not(svg):not(path),
+li[data-baseweb="menu-item"],
+li[data-baseweb="menu-item"] *:not(svg):not(path) {
     background-color: #1E293B !important;
-    color: #FFFFFF !important;
-    border: 1.5px solid #FFFFFF !important;
-    height: 42px !important;
+    color: #F8FAFC !important;
 }
-/* ドロップダウンリスト内の文字色も白に固定 */
+li[data-baseweb="menu-item"]:hover,
+li[data-baseweb="menu-item"]:hover *:not(svg):not(path),
+li[data-baseweb="menu-item"][aria-selected="true"],
+li[data-baseweb="menu-item"][aria-selected="true"] *:not(svg):not(path) {
+    background-color: #3B82F6 !important;
+    color: #FFFFFF !important;
+}
 div[data-baseweb="popover"] * { color: #FFFFFF !important; }
 
 /* 日付入力の白い外枠（影）を物理的に排除 */

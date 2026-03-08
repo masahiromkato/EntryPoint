@@ -229,12 +229,9 @@ def build_chart(
         line=dict(color=INDIGO, width=1.6),
         legendgroup="rsi", legend="legend2",
     ), row=2, col=1)
-    fig.add_hline(y=rsi_thr, line=dict(color=AMBER, width=1.2, dash="dot"),
-                  annotation_text=f" 閾値 {rsi_thr:.1f} ",
-                  annotation_font=dict(color=AMBER, size=11),
-                  annotation_position="top right", row=2, col=1)
-    fig.add_hline(y=30, line=dict(color=RED,   width=0.8, dash="dash"), row=2, col=1)
-    fig.add_hline(y=70, line=dict(color=GREEN, width=0.8, dash="dash"), row=2, col=1)
+    # RSI 30/70 固定ライン
+    fig.add_hline(y=30, line=dict(color=RED,   width=1.0, dash="dash"), row=2, col=1)
+    fig.add_hline(y=70, line=dict(color=GREEN, width=1.0, dash="dash"), row=2, col=1)
 
     # ── Row3: 累積資産推移 ───────────────────────────────────
     pv = plot.dropna(subset=["DCA_Val", "Sig_Val"])
@@ -331,6 +328,16 @@ def build_chart(
     fig.update_xaxes(**xax, showticklabels=False, row=2, col=1)
     fig.update_xaxes(**xax, showticklabels=True,  row=3, col=1)
 
+    # ── 閾値ラインを最前面に描画 ───────────────────────────
+    fig.add_hline(
+        y=rsi_thr, 
+        line=dict(color=AMBER, width=1.5, dash="dash"),
+        annotation_text=f" 閾値 {rsi_thr:.1f} ",
+        annotation_font=dict(color=AMBER, size=12, family="Inter"),
+        annotation_position="top right", 
+        row=2, col=1
+    )
+
     return fig
 
 
@@ -383,7 +390,7 @@ def build_rsi_detail_chart(df: pd.DataFrame, rsi_thr: float) -> go.Figure:
     ))
     fig.add_hline(y=rsi_thr, line=dict(color=AMBER, width=1.5, dash="dash"),
                   annotation_text=f" 閾値 {rsi_thr:.1f} ",
-                  annotation_font=dict(color=AMBER, size=11),
+                  annotation_font=dict(color=AMBER, size=12, family="Inter"),
                   annotation_position="top right")
     fig.add_hline(y=30, line=dict(color=RED,   width=0.8, dash="dash"),
                   annotation_text="30.0 ", annotation_position="bottom right",
