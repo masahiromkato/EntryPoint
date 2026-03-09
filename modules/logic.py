@@ -43,8 +43,11 @@ def run_analysis_pipeline(
     # 3. Calculate Indicators
     df = calc_indicators(df, ma_period)
     
+    # --- Filter to selected range for all downstream logic (signals, simulation, stats) ---
+    df = df[(df.index.date >= start_date) & (df.index.date <= end_date)].copy()
+    
     # 4. Generate Signals
-    df = gen_signals(df, chg_thr, rsi_thr, dev_thr, use_chg, use_rsi, use_ma, cond_mode)
+    df = gen_signals(df, dev_thr, use_ma, rsi_thr, use_rsi, chg_thr, use_chg, cond_mode)
     
     # 5. Run Simulation
     df = simulate(df, periodic_invest, signal_bonus)

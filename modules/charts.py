@@ -2,6 +2,7 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import pandas as pd
 import numpy as np
+import datetime
 
 
 # ── 色定数 ──────────────────────────────────────────────────
@@ -44,10 +45,14 @@ def build_chart(
     rsi_thr: float,
     row_heights: list,
     cond_mode: str,
+    start_date: datetime.date,
+    end_date: datetime.date,
     show_annual_grid: bool = False,
 ) -> go.Figure:
 
-    plot     = df.dropna(subset=["Close"])
+    # 描画対象をユーザー指定期間に厳密に絞り込む（バッファ分のデータを除外）
+    plot     = df[(df.index.date >= start_date) & (df.index.date <= end_date)].copy()
+    plot     = plot.dropna(subset=["Close"])
     sig      = plot[plot["Signal"] == True]
     has_ohlc = all(c in plot.columns for c in ["Open", "High", "Low"])
 

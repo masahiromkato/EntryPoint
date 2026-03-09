@@ -42,8 +42,13 @@ def sync_start_date():
 
 def sync_end_year():
     y = st.session_state["end_year"]
-    # 終了年が変更された場合は、12月31日にリセット（以前の仕様）
-    st.session_state["end_date"] = datetime.date(y, 12, 31)
+    today = datetime.date.today()
+    if y == today.year:
+        # 今年が選択された場合は今日の日付をセット
+        st.session_state["end_date"] = today
+    else:
+        # 過去年が選択された場合は12月31日にセット
+        st.session_state["end_date"] = datetime.date(y, 12, 31)
     reset_run()
 
 def sync_end_date():
@@ -381,7 +386,7 @@ def main():
     fig = build_chart(
         df, ticker, ticker_name, iv_label, ma_label,
         float(dev_thr), float(rsi_thr),
-        row_heights, cond_mode, show_annual_grid,
+        row_heights, cond_mode, start_date, end_date, show_annual_grid,
     )
     st.plotly_chart(fig, use_container_width=True)
 
