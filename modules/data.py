@@ -1,7 +1,11 @@
-import streamlit as st
 import pandas as pd
 import yfinance as yf
 import datetime
+
+
+class DataFetchError(Exception):
+    """Exception raised when data fetching fails."""
+    pass
 
 
 def _safe_download(ticker: str, start: datetime.date, end: datetime.date, interval: str) -> pd.DataFrame:
@@ -15,11 +19,11 @@ def _safe_download(ticker: str, start: datetime.date, end: datetime.date, interv
             auto_adjust=True,
             progress=False,
         )
-    except Exception:
-        return pd.DataFrame()
+    except Exception as e:
+        raise DataFetchError(f"通信エラー: {ticker} のデータの取得に失敗しました。({str(e)})")
 
     if raw is None or raw.empty:
-        return pd.DataFrame()
+        raise DataFetchError(f"銘柄 {ticker} のデータが見つからないか、指定期間内に存在しません。")
 
     # MultiIndex 対策
     if isinstance(raw.columns, pd.MultiIndex):
@@ -38,12 +42,10 @@ def _safe_download(ticker: str, start: datetime.date, end: datetime.date, interv
     return df
 
 
-@st.cache_data(ttl=86400, show_spinner=False)
 def fetch_data(ticker: str, start_date: datetime.date, end_date: datetime.date, interval: str) -> pd.DataFrame:
     return _safe_download(ticker, start_date, end_date, interval)
 
 
-@st.cache_data(ttl=86400 * 7, show_spinner=False)
 def fetch_ticker_name(ticker: str) -> str:
     try:
         info = yf.Ticker(ticker).info
@@ -52,12 +54,15 @@ def fetch_ticker_name(ticker: str) -> str:
         return ""
 
 
-@st.cache_data(ttl=86400, show_spinner=False)
 def fetch_fx_rate(start_date: datetime.date, end_date: datetime.date, interval: str) -> pd.Series:
-    """USD/JPY レートを取得してSeriesで返す。失敗時は空Series。"""
-    df = _safe_download("JPY=X", start_date, end_date, interval)
+    """USD/JPY レートを取得してSeriesで返す。失敗時は DataFetchError。"""
+    try:
+        df = _safe_download("JPY=X", start_date, end_date, interval)
+    except DataFetchError:
+        raise DataFetchError("為替レート（JPY=X）の取得に失敗しました。")
+
     if df.empty or "Close" not in df.columns:
-        return pd.Series(dtype=float)
+        raise DataFetchError("為替データが空です。")
     return df["Close"].rename("USDJPY")
 
 

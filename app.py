@@ -8,9 +8,9 @@ import datetime
 # モジュールインポート
 # =============================================================================
 from modules.config import set_global_css, PRESET_TICKERS, INTERVAL_OPTIONS, JPY_TICKERS
-from modules.data import fetch_data, fetch_ticker_name, fetch_fx_rate, apply_fx_conversion
-from modules.indicators import calc_indicators, gen_signals, PANDAS_TA_AVAILABLE
-from modules.simulation import simulate
+from modules.data import fetch_ticker_name, DataFetchError
+from modules.logic import run_analysis_pipeline
+from modules.indicators import PANDAS_TA_AVAILABLE
 from modules.charts import build_chart, build_dev_chart, build_rsi_detail_chart, build_chg_chart
 
 # =============================================================================
@@ -81,6 +81,17 @@ def render_custom_metric(label, value, delta=None, color_class="val-sky"):
     """, unsafe_allow_html=True)
 
 # =============================================================================
+# キャッシュ化されたパイプライン
+# =============================================================================
+@st.cache_data(ttl=86400, show_spinner=False)
+def run_analysis_pipeline_cached(**kwargs):
+    return run_analysis_pipeline(**kwargs)
+
+@st.cache_data(ttl=86400 * 7, show_spinner=False)
+def fetch_ticker_name_cached(ticker: str) -> str:
+    return fetch_ticker_name(ticker)
+
+# =============================================================================
 # メインアプリ
 # =============================================================================
 def main():
@@ -119,7 +130,7 @@ def main():
                                            on_change=reset_run).strip().upper()
                 ticker = raw_ticker + ".T" if raw_ticker.isdigit() else raw_ticker
 
-            ticker_name = fetch_ticker_name(ticker)
+            ticker_name = fetch_ticker_name_cached(ticker)
             name_disp   = f" {ticker_name}" if ticker_name else ""
             st.markdown(
                 f'選択中 &nbsp;<span class="ticker-badge">{name_disp.strip()}</span>',
@@ -277,66 +288,37 @@ def main():
         st.info("👈 設定を調整し、サイドバー上部の「実行」ボタンを押すと解析を開始します。", icon="ℹ️")
         st.stop()
 
-    # ═══ データ取得 ════════════════════════════════════════════
-    buffer_days = (
-        ma_period * 31 if interval_yf == "1mo"
-        else ma_period * 7 + 30 if interval_yf == "1wk"
-        else int(ma_period * 1.5 + 30)
-    )
-    fetch_start = start_date - datetime.timedelta(days=buffer_days)
-
-    with st.spinner(f"📡  {ticker} の{iv_label}データを取得中…"):
-        df = fetch_data(ticker, start_date=fetch_start, end_date=end_date, interval=interval_yf)
-
-    if df.empty:
-        st.error(
-            f"❌  **{ticker}** のデータを取得できませんでした。\n\n"
-            "**考えられる原因：**\n"
-            "- ティッカーシンボルが間違っている\n"
-            "- 指定の期間・足種にデータが存在しない\n"
-            "- Yahoo Finance の一時的な障害\n\n"
-            "ティッカーや足種・取得年数を変更してお試しください。", icon="🚫")
+    # ═══ 解析実行（pipeline 呼び出し） ════════════════════════
+    try:
+        df, metrics = run_analysis_pipeline_cached(
+            ticker=ticker,
+            interval_yf=interval_yf,
+            ma_period=ma_period,
+            start_date=start_date,
+            end_date=end_date,
+            display_currency=display_currency,
+            is_native_jpy=is_native_jpy,
+            dev_thr=dev_thr, use_ma=use_ma,
+            rsi_thr=rsi_thr, use_rsi=use_rsi,
+            chg_thr=chg_thr, use_chg=use_chg,
+            # (注意) app.py 内部では元の cond_mode 変数を使用
+            cond_mode=cond_mode,
+            periodic_invest=periodic_invest,
+            signal_bonus=signal_bonus
+        )
+    except DataFetchError as e:
+        st.error(f"❌  **データの取得に失敗しました**\n\n{str(e)}", icon="🚫")
         st.stop()
 
-    # ── 為替変換（USD→JPY, 日本株ETFは対象外）───────────────
-    if display_currency == "JPY" and not is_native_jpy:
-        with st.spinner("💱 為替レート (USDJPY) を取得して円換算中…"):
-            fx_series = fetch_fx_rate(start_date=fetch_start, end_date=end_date, interval=interval_yf)
-        if not fx_series.empty:
-            df = apply_fx_conversion(df, fx_series)
-        else:
-            st.warning("⚠️ 為替データ (JPY=X) を取得できなかったため、USD建てのまま表示します。", icon="⚠️")
-
-    # ── 指標・シグナル・シミュレーション ─────────────────────
-    df = calc_indicators(df, ma_period=ma_period)
-    df = gen_signals(
-        df,
-        float(dev_thr), use_ma,
-        float(rsi_thr), use_rsi,
-        float(chg_thr), use_chg,
-        cond_mode,
-    )
-    df = simulate(df, float(periodic_invest), float(signal_bonus))
-
-    # 実際のデータ開始日を取得（ユーザーへのフィードバック用）
-    actual_start = df.index.min().date()
-
-    # 表示期間でフィルタリング
-    mask = (df.index.date >= start_date) & (df.index.date <= end_date)
-    df   = df.loc[mask]
-
-    if df.empty:
-        st.warning("指定された期間内に取引データがありませんでした。開始日を調整するか他の銘柄をお試しください。", icon="⚠️")
-        st.stop()
-
-    # ── メトリクス計算 ────────────────────────────────────────
-    latest    = df["Close"].dropna().iloc[-1]
-    ma_last   = df["MA_VAL"].dropna().iloc[-1]    if df["MA_VAL"].notna().any()    else None
-    dev_last  = df["DEV"].dropna().iloc[-1]       if df["DEV"].notna().any()       else None
-    rsi_last  = df["RSI"].dropna().iloc[-1]       if df["RSI"].notna().any()       else None
-    chg_last  = df["PRICE_CHG"].dropna().iloc[-1] if df["PRICE_CHG"].notna().any() else None
-    sig_count = int(df["Signal"].sum())
-    is_signal = bool(df["Signal"].iloc[-1]) if df["Signal"].notna().any() else False
+    # パイプライン結果の展開
+    latest    = metrics["latest"]
+    ma_last   = metrics["ma_last"]
+    dev_last  = metrics["dev_last"]
+    rsi_last  = metrics["rsi_last"]
+    chg_last  = metrics["chg_last"]
+    sig_count = metrics["sig_count"]
+    is_signal = metrics["is_signal"]
+    actual_start = metrics["actual_start"]
     csym      = currency_symbol(ticker, display_currency)
 
     # ═══ メトリクス行 ═════════════════════════════════════════
@@ -540,8 +522,8 @@ def main():
 
     st.divider()
     st.caption(
-        "⚠️ 本アプリは教育・研究目的のみです。分析・シミュレーション結果は投資助言ではありません。"
-        "投資判断は自己責任で行ってください。  |  データ提供: Yahoo Finance"
+        f"RSI計算: {'pandas_ta' if PANDAS_TA_AVAILABLE else '手動実装（フォールバック）'} | "
+        "データ提供: Yahoo Finance"
     )
 
 
