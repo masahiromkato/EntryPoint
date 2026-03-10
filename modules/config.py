@@ -59,26 +59,6 @@ class AppConfig:
 # インスタンス生成
 config = AppConfig()
 
-# ── 互換性維持のためのエイリアス ──────────────────────
-PRESET_TICKERS   = config.PRESET_TICKERS
-INTERVAL_OPTIONS = config.INTERVAL_OPTIONS
-JPY_TICKERS      = config.JPY_TICKERS
-BG               = config.BG
-GRID             = config.GRID
-AMBER            = config.AMBER
-BLUE             = config.BLUE
-PURPLE           = config.PURPLE
-GREEN            = config.GREEN
-RED              = config.RED
-INDIGO           = config.INDIGO
-SIG_MA_COLOR     = config.SIG_MA_COLOR
-SIG_RSI_COLOR    = config.SIG_RSI_COLOR
-SIG_CHG_COLOR    = config.SIG_CHG_COLOR
-SIG_CMP_COLOR    = config.SIG_CMP_COLOR
-AX_F             = config.AX_F
-TTL_F            = config.TTL_F
-LEG_BASE         = config.LEG_BASE
-
 
 def set_global_css():
     st.markdown("""

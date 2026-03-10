@@ -1,6 +1,65 @@
 import pandas as pd
 import yfinance as yf
 import datetime
+from dataclasses import dataclass
+
+
+@dataclass
+class StockData:
+    """分析データとメタデータを保持するデータモデル。"""
+    df: pd.DataFrame
+    ticker: str
+    currency: str
+    interval: str
+
+    @property
+    def index(self) -> pd.Index: return self.df.index
+    @property
+    def close(self) -> pd.Series: return self.df["Close"]
+    @property
+    def open(self) -> pd.Series: return self.df["Open"] if "Open" in self.df.columns else None
+    @property
+    def high(self) -> pd.Series: return self.df["High"] if "High" in self.df.columns else None
+    @property
+    def low(self) -> pd.Series: return self.df["Low"] if "Low" in self.df.columns else None
+    
+    # 指標系
+    @property
+    def ma(self) -> pd.Series: return self.df.get("MA_VAL")
+    @property
+    def rsi(self) -> pd.Series: return self.df.get("RSI")
+    @property
+    def dev(self) -> pd.Series: return self.df.get("DEV")
+    @property
+    def price_chg(self) -> pd.Series: return self.df.get("PRICE_CHG")
+    
+    # シグナル系
+    @property
+    def signal(self) -> pd.Series: return self.df.get("Signal")
+    @property
+    def sig_ma(self) -> pd.Series: return self.df.get("Sig_MA")
+    @property
+    def sig_rsi(self) -> pd.Series: return self.df.get("Sig_RSI")
+    @property
+    def sig_chg(self) -> pd.Series: return self.df.get("Sig_CHG")
+    
+    # シミュレーション系
+    @property
+    def dca_val(self) -> pd.Series: return self.df.get("DCA_Val")
+    @property
+    def sig_val(self) -> pd.Series: return self.df.get("Sig_Val")
+
+    def copy(self) -> 'StockData':
+        return StockData(df=self.df.copy(), ticker=self.ticker, currency=self.currency, interval=self.interval)
+
+    def slice_range(self, start_date: datetime.date, end_date: datetime.date) -> 'StockData':
+        mask = (self.df.index.date >= start_date) & (self.df.index.date <= end_date)
+        return StockData(
+            df=self.df[mask].copy(),
+            ticker=self.ticker,
+            currency=self.currency,
+            interval=self.interval
+        )
 
 
 class DataFetchError(Exception):

@@ -7,7 +7,7 @@ import datetime
 # =============================================================================
 # モジュールインポート
 # =============================================================================
-from modules.config import set_global_css, PRESET_TICKERS, INTERVAL_OPTIONS, JPY_TICKERS
+from modules.config import config, set_global_css
 from modules.data import fetch_ticker_name, DataFetchError
 from modules.logic import run_analysis_pipeline
 from modules.indicators import PANDAS_TA_AVAILABLE
@@ -59,7 +59,7 @@ def currency_symbol(ticker: str, display_currency: str) -> str:
     # 指数（^GSPC等）の場合は記号なし
     if ticker.startswith("^"):
         return ""
-    if ticker in JPY_TICKERS or display_currency == "JPY":
+    if ticker in config.JPY_TICKERS or display_currency == "JPY":
         return "¥"
     return "$"
 
@@ -124,10 +124,10 @@ def main():
                             horizontal=True, label_visibility="collapsed",
                             on_change=reset_run)
             if mode == "プリセット":
-                label  = st.selectbox("銘柄", list(PRESET_TICKERS.keys()),
+                label  = st.selectbox("銘柄", list(config.PRESET_TICKERS.keys()),
                                        label_visibility="collapsed",
                                        on_change=reset_run)
-                ticker = PRESET_TICKERS[label]
+                ticker = config.PRESET_TICKERS[label]
             else:
                 raw_ticker = st.text_input("ティッカー", value="",
                                            placeholder="例: VOO / QQQ / 1321",
@@ -148,11 +148,11 @@ def main():
         
         col_iv1, col_iv2 = st.columns(2, vertical_alignment="bottom")
         with col_iv1:
-            iv_label = st.selectbox("足種", list(INTERVAL_OPTIONS.keys()), index=1, on_change=reset_run)
+            iv_label = st.selectbox("足種", list(config.INTERVAL_OPTIONS.keys()), index=1, on_change=reset_run)
         with col_iv2:
             ma_period = st.number_input("MA期間", min_value=1, max_value=500, value=50, step=1, on_change=reset_run)
         
-        iv          = INTERVAL_OPTIONS[iv_label]
+        iv          = config.INTERVAL_OPTIONS[iv_label]
         interval_yf = iv["yf"]
         unit        = iv["unit"]
         ma_label    = f"{ma_period}{iv['ma_suffix']}MA"
@@ -256,7 +256,7 @@ def main():
         # ── 💱 表示設定 ───────────────────────────
         st.divider()
         st.markdown("### 💱 表示設定")
-        is_native_jpy   = ticker in JPY_TICKERS
+        is_native_jpy   = ticker in config.JPY_TICKERS
         display_currency = st.radio(
             "表示通貨", ["USD", "JPY"],
             horizontal=True, disabled=is_native_jpy,
@@ -295,7 +295,7 @@ def main():
 
     # ═══ 解析実行（pipeline 呼び出し） ════════════════════════
     try:
-        df, metrics = run_analysis_pipeline_v2(
+        stock_data, metrics = run_analysis_pipeline_v2(
             ticker=ticker,
             interval_yf=interval_yf,
             ma_period=ma_period,
@@ -376,7 +376,7 @@ def main():
 
     # ═══ メインチャート ════════════════════════════════════════
     # 描画対象期間をここで厳密に切り出す（責務の移動）
-    plot_df = df[(df.index.date >= start_date) & (df.index.date <= end_date)].copy()
+    plot_data = stock_data.slice_range(start_date, end_date)
 
     # データの実態開始日とユーザー指定の開始日が大きく乖離している場合に注意表示
     if (actual_start - start_date).days > 60:
@@ -387,7 +387,7 @@ def main():
         )
 
     fig = render_main_chart(
-        plot_df, ticker, ticker_name, iv_label, ma_label,
+        plot_data, ticker_name, iv_label, ma_label,
         float(dev_thr), float(rsi_thr),
         row_heights, cond_mode, show_annual_grid,
     )
@@ -395,7 +395,7 @@ def main():
 
     # 1. 買いシグナル発生日一覧
     with st.expander("📅  買いシグナル 発生日一覧", expanded=False):
-        sig_rows = df[df["Signal"] == True][["Close", "MA_VAL", "PRICE_CHG", "RSI", "DEV"]].copy()
+        sig_rows = stock_data.df[stock_data.signal == True][["Close", "MA_VAL", "PRICE_CHG", "RSI", "DEV"]].copy()
         if sig_rows.empty:
             st.info("現在の条件ではシグナルが発生していません。閾値を緩めるかトグルをONにしてください。")
         else:
@@ -466,19 +466,19 @@ def main():
 
     # 2. 騰落率詳細チャート
     with st.expander(f"📊  前{unit}比 騰落率チャートを開く", expanded=False):
-        st.plotly_chart(build_chg_chart(df, float(chg_thr), unit), use_container_width=True)
+        st.plotly_chart(build_chg_chart(stock_data, float(chg_thr), unit), use_container_width=True)
 
     # 3. RSIチャート
     with st.expander("📊  RSI(14) チャートを開く", expanded=False):
-        st.plotly_chart(build_rsi_detail_chart(df, float(rsi_thr)), use_container_width=True)
+        st.plotly_chart(build_rsi_detail_chart(stock_data, float(rsi_thr)), use_container_width=True)
 
     # 4. MA乖離率チャート
     with st.expander(f"📊  {ma_label}乖離率チャートを開く", expanded=False):
-        st.plotly_chart(build_dev_chart(df, float(dev_thr), ma_label), use_container_width=True)
+        st.plotly_chart(build_dev_chart(stock_data, float(dev_thr), ma_label), use_container_width=True)
 
     # ═══ シミュレーション結果サマリー ═════════════════════════
     st.markdown("### 📋 積立シミュレーション 結果サマリー")
-    pv = df.dropna(subset=["DCA_Val", "Sig_Val"])
+    pv = stock_data.df.dropna(subset=["DCA_Val", "Sig_Val"])
 
     if not pv.empty:
         last = pv.iloc[-1]
@@ -489,8 +489,8 @@ def main():
         t_years = (pv.index[-1] - pv.index[0]).days / 365.25 if len(pv) > 1 else 1
         d_cagr  = ((dv / di) ** (1 / max(t_years, 0.01)) - 1) * 100 if di > 0 else 0
         s_cagr  = ((sv / si) ** (1 / max(t_years, 0.01)) - 1) * 100 if si > 0 else 0
-        d_mdd   = (pv["DCA_Val"] / pv["DCA_Val"].cummax() - 1).min() * 100
-        s_mdd   = (pv["Sig_Val"] / pv["Sig_Val"].cummax() - 1).min() * 100
+        d_mdd   = (stock_data.dca_val / stock_data.dca_val.cummax() - 1).min() * 100
+        s_mdd   = (stock_data.sig_val / stock_data.sig_val.cummax() - 1).min() * 100
 
         cl, cr = st.columns(2)
         with cl:

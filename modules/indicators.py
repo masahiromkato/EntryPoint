@@ -29,44 +29,55 @@ def calc_rsi(series: pd.Series, length: int = 14) -> pd.Series:
     return _rsi_wilder(series, length)
 
 
-def calc_indicators(df: pd.DataFrame, ma_period: int = 50) -> pd.DataFrame:
-    df        = df.copy()
-    close     = df["Close"]
-    df["MA_VAL"]    = close.rolling(window=ma_period, min_periods=ma_period).mean()
-    df["DEV"]       = (close - df["MA_VAL"]) / df["MA_VAL"] * 100
-    df["RSI"]       = calc_rsi(close, 14)
-    df["PRICE_CHG"] = (df["Close"].pct_change() * 100).fillna(0.0).astype(float)
-    return df
+def calc_ma(prices: pd.Series, period: int) -> pd.Series:
+    """移動平均の計算"""
+    return prices.rolling(window=period, min_periods=period).mean()
+
+
+def calc_deviation(prices: pd.Series, ma: pd.Series) -> pd.Series:
+    """乖離率の計算"""
+    return (prices - ma) / ma * 100
+
+
+def calc_price_chg(prices: pd.Series) -> pd.Series:
+    """騰落率の計算"""
+    return (prices.pct_change() * 100).fillna(0.0).astype(float)
 
 
 def gen_signals(
-    df: pd.DataFrame,
+    prices: pd.Series,
+    ma: pd.Series,
+    rsi: pd.Series,
+    dev: pd.Series,
+    price_chg: pd.Series,
     dev_thr: float,   use_ma:  bool,
     rsi_thr: float,   use_rsi: bool,
     chg_thr: float,   use_chg: bool,
     mode: str,
 ) -> pd.DataFrame:
-    df    = df.copy()
-    c_ma  = df["DEV"]       <= dev_thr if use_ma  else pd.Series(False, index=df.index)
-    c_rsi = df["RSI"]       <= rsi_thr if use_rsi else pd.Series(False, index=df.index)
-    c_chg = df["PRICE_CHG"] <= chg_thr if use_chg else pd.Series(False, index=df.index)
+    """
+    Pure signal generation. Returns a DataFrame with Signal and sub-signals.
+    """
+    c_ma  = dev       <= dev_thr if use_ma  else pd.Series(False, index=prices.index)
+    c_rsi = rsi       <= rsi_thr if use_rsi else pd.Series(False, index=prices.index)
+    c_chg = price_chg <= chg_thr if use_chg else pd.Series(False, index=prices.index)
 
     active = [c for flag, c in [(use_ma, c_ma), (use_rsi, c_rsi), (use_chg, c_chg)] if flag]
 
     if not active:
-        df["Signal"] = False
+        sig = pd.Series(False, index=prices.index)
     elif mode == "AND":
         sig = active[0]
         for c in active[1:]:
             sig = sig & c
-        df["Signal"] = sig
     else:
         sig = active[0]
         for c in active[1:]:
             sig = sig | c
-        df["Signal"] = sig
 
-    df["Sig_MA"]  = c_ma
-    df["Sig_RSI"] = c_rsi
-    df["Sig_CHG"] = c_chg
-    return df
+    return pd.DataFrame({
+        "Signal":  sig,
+        "Sig_MA":  c_ma,
+        "Sig_RSI": c_rsi,
+        "Sig_CHG": c_chg
+    }, index=prices.index)

@@ -3,16 +3,12 @@ from plotly.subplots import make_subplots
 import pandas as pd
 import numpy as np
 import datetime
-from modules.config import (
-    BG, GRID, AMBER, BLUE, PURPLE, GREEN, RED, INDIGO,
-    SIG_MA_COLOR, SIG_RSI_COLOR, SIG_CHG_COLOR, SIG_CMP_COLOR,
-    AX_F, TTL_F, LEG_BASE
-)
+from modules.config import config
+from modules.data import StockData
 
 
 def render_main_chart(
-    df: pd.DataFrame,
-    ticker: str,
+    stock_data: StockData,
     ticker_name: str,
     iv_label: str,
     ma_label: str,
@@ -24,8 +20,7 @@ def render_main_chart(
 ) -> go.Figure:
 
     # 描画対象（呼び出し側でフィルタリング済み）
-    plot     = df.copy()
-    plot     = plot.dropna(subset=["Close"])
+    plot     = stock_data.df
     sig      = plot[plot["Signal"] == True]
     has_ohlc = all(c in plot.columns for c in ["Open", "High", "Low"])
 
@@ -43,9 +38,9 @@ def render_main_chart(
             x=plot.index, open=plot["Open"], high=plot["High"],
             low=plot["Low"], close=plot["Close"],
             name="ローソク足",
-            increasing_line_color=GREEN, decreasing_line_color=RED,
-            increasing_fillcolor=GREEN,
-            decreasing_fillcolor=RED,
+            increasing_line_color=config.GREEN, decreasing_line_color=config.RED,
+            increasing_fillcolor=config.GREEN,
+            decreasing_fillcolor=config.RED,
             legendgroup="price", legend="legend", whiskerwidth=0.4,
             showlegend=False,
             # ツールチップの完全制御（Date, Open, Close, Changeのみ）
@@ -61,7 +56,7 @@ def render_main_chart(
         fig.add_trace(go.Scatter(
             x=plot.index, y=plot["Close"],
             name="終値", mode="lines",
-            line=dict(color=BLUE, width=1.8),
+            line=dict(color=config.BLUE, width=1.8),
             legendgroup="price", legend="legend",
         ), row=1, col=1)
 
@@ -69,7 +64,7 @@ def render_main_chart(
     fig.add_trace(go.Scatter(
         x=ma_p.index, y=ma_p["MA_VAL"],
         name=ma_label, mode="lines",
-        line=dict(color=AMBER, width=2, dash="dot"),
+        line=dict(color=config.AMBER, width=2, dash="dot"),
         legendgroup="price", legend="legend",
         hoverinfo="skip",  # MAのホバー表示を物理的に遮断
     ), row=1, col=1)
@@ -80,16 +75,16 @@ def render_main_chart(
 
         if cond_mode == "AND":
             groups = [
-                (sig[ sig["Sig_MA"] & ~sig["Sig_RSI"] & ~sig["Sig_CHG"]], SIG_MA_COLOR,  f"{ma_label}シグナル"),
-                (sig[~sig["Sig_MA"] &  sig["Sig_RSI"] & ~sig["Sig_CHG"]], SIG_RSI_COLOR, "RSIシグナル"),
-                (sig[~sig["Sig_MA"] & ~sig["Sig_RSI"] &  sig["Sig_CHG"]], SIG_CHG_COLOR, "騰落率シグナル"),
-                (sig[cnt >= 2],                                             SIG_CMP_COLOR, "複合シグナル"),
+                (sig[ sig["Sig_MA"] & ~sig["Sig_RSI"] & ~sig["Sig_CHG"]], config.SIG_MA_COLOR,  f"{ma_label}シグナル"),
+                (sig[~sig["Sig_MA"] &  sig["Sig_RSI"] & ~sig["Sig_CHG"]], config.SIG_RSI_COLOR, "RSIシグナル"),
+                (sig[~sig["Sig_MA"] & ~sig["Sig_RSI"] &  sig["Sig_CHG"]], config.SIG_CHG_COLOR, "騰落率シグナル"),
+                (sig[cnt >= 2],                                             config.SIG_CMP_COLOR, "複合シグナル"),
             ]
         else:  # OR: 複合シグナルは不表示
             groups = [
-                (sig[sig["Sig_MA"]],  SIG_MA_COLOR,  f"{ma_label}シグナル"),
-                (sig[sig["Sig_RSI"]], SIG_RSI_COLOR, "RSIシグナル"),
-                (sig[sig["Sig_CHG"]], SIG_CHG_COLOR, "騰落率シグナル"),
+                (sig[sig["Sig_MA"]],  config.SIG_MA_COLOR,  f"{ma_label}シグナル"),
+                (sig[sig["Sig_RSI"]], config.SIG_RSI_COLOR, "RSIシグナル"),
+                (sig[sig["Sig_CHG"]], config.SIG_CHG_COLOR, "騰落率シグナル"),
             ]
 
         for sub_df, col, name in groups:
@@ -159,11 +154,11 @@ def render_main_chart(
             first_day = sub_yr.index[0]
 
             # ── 区間シグナル累計: 全ラベル合計 = チャート▽総数 ──
-            if "Signal" in df.columns:
+            if "Signal" in plot.columns:
                 y_from = y
                 y_to   = display_years[idx + 1] - 1 if idx + 1 < len(display_years) else years[-1]
-                mask   = (df.index.year >= y_from) & (df.index.year <= y_to)
-                num_signals = int(df.loc[mask, "Signal"].sum())
+                mask   = (plot.index.year >= y_from) & (plot.index.year <= y_to)
+                num_signals = int(plot.loc[mask, "Signal"].sum())
             else:
                 y_to = y
                 num_signals = 0
@@ -204,12 +199,12 @@ def render_main_chart(
     fig.add_trace(go.Scatter(
         x=rp.index, y=rp["RSI"],
         name="RSI(14)", mode="lines",
-        line=dict(color=INDIGO, width=1.6),
+        line=dict(color=config.INDIGO, width=1.6),
         legendgroup="rsi", legend="legend2",
     ), row=2, col=1)
     # RSI 30/70 固定ライン
-    fig.add_hline(y=30, line=dict(color=RED,   width=1.0, dash="dash"), row=2, col=1)
-    fig.add_hline(y=70, line=dict(color=GREEN, width=1.0, dash="dash"), row=2, col=1)
+    fig.add_hline(y=30, line=dict(color=config.RED,   width=1.0, dash="dash"), row=2, col=1)
+    fig.add_hline(y=70, line=dict(color=config.GREEN, width=1.0, dash="dash"), row=2, col=1)
 
     # ── Row3: 累積資産推移 ───────────────────────────────────
     pv = plot.dropna(subset=["DCA_Val", "Sig_Val"])
@@ -217,27 +212,27 @@ def render_main_chart(
         fig.add_trace(go.Scatter(
             x=pv.index, y=pv["DCA_Val"],
             name="DCA 資産額", mode="lines",
-            line=dict(color=BLUE, width=1.5),
+            line=dict(color=config.BLUE, width=1.5),
             fill="tozeroy", fillcolor="rgba(96,165,250,0.06)",
             legendgroup="port", legend="legend3",
         ), row=3, col=1)
         fig.add_trace(go.Scatter(
             x=pv.index, y=pv["Sig_Val"],
             name="シグナル戦略 資産額", mode="lines",
-            line=dict(color=PURPLE, width=1.5),
+            line=dict(color=config.PURPLE, width=1.5),
             fill="tozeroy", fillcolor="rgba(168,85,247,0.06)",
             legendgroup="port", legend="legend3",
         ), row=3, col=1)
         fig.add_trace(go.Scatter(
             x=pv.index, y=pv["DCA_Inv"],
             name="DCA 元本", mode="lines",
-            line=dict(color=BLUE, width=1, dash="dot"), opacity=0.4,
+            line=dict(color=config.BLUE, width=1, dash="dot"), opacity=0.4,
             legendgroup="port", legend="legend3",
         ), row=3, col=1)
         fig.add_trace(go.Scatter(
             x=pv.index, y=pv["Sig_Inv"],
             name="シグナル 元本", mode="lines",
-            line=dict(color=PURPLE, width=1, dash="dot"), opacity=0.4,
+            line=dict(color=config.PURPLE, width=1, dash="dot"), opacity=0.4,
             legendgroup="port", legend="legend3",
         ), row=3, col=1)
 
@@ -249,12 +244,12 @@ def render_main_chart(
     sep1_y = (domain2[0] + domain3[1]) / 2.0
 
     name_str  = f" ： {ticker_name}" if ticker_name else ""
-    title_txt = f"▌ 株価チャート {iv_label} ({ma_label}) {ticker}{name_str}"
+    title_txt = f"▌ 株価チャート {iv_label} ({ma_label}) {stock_data.ticker}{name_str}"
 
     fig.update_layout(
         template="plotly_dark",
-        paper_bgcolor=BG,
-        plot_bgcolor=BG,
+        paper_bgcolor=config.BG,
+        plot_bgcolor=config.BG,
         font=dict(family="Inter", size=12, color="#FFFFFF"),
         xaxis_rangeslider_visible=False,
         height=1080,
@@ -274,9 +269,9 @@ def render_main_chart(
                  x0=0, x1=1, y0=sep2_y, y1=sep2_y,
                  line=dict(color="#3B82F6", width=2.5)),
         ],
-        legend =dict(**LEG_BASE, x=0.01, y=0.93, xanchor="left", yanchor="top"),
-        legend2=dict(**LEG_BASE, x=0.01, y=domain2[1] - 0.01, xanchor="left", yanchor="top"),
-        legend3=dict(**LEG_BASE, x=0.01, y=domain3[1] - 0.01, xanchor="left", yanchor="top"),
+        legend =dict(**config.LEG_BASE, x=0.01, y=0.93, xanchor="left", yanchor="top"),
+        legend2=dict(**config.LEG_BASE, x=0.01, y=domain2[1] - 0.01, xanchor="left", yanchor="top"),
+        legend3=dict(**config.LEG_BASE, x=0.01, y=domain3[1] - 0.01, xanchor="left", yanchor="top"),
     )
 
     # チャートタイトル注釈
@@ -295,13 +290,13 @@ def render_main_chart(
                        font=dict(size=11, color="#7DD3FC", family="Inter"), showarrow=False)
 
     # 軸設定
-    ax  = dict(gridcolor=GRID, zerolinecolor=GRID, tickfont=AX_F, title_font=TTL_F, showgrid=True)
+    ax  = dict(gridcolor=config.GRID, zerolinecolor=config.GRID, tickfont=config.AX_F, title_font=config.TTL_F, showgrid=True)
     fig.update_yaxes(title_text="価格",   **ax, row=1, col=1)
     fig.update_yaxes(title_text="RSI",    range=[0, 100], zeroline=False, **ax, row=2, col=1)
     fig.update_yaxes(title_text="資産額", **ax, row=3, col=1)
     
     # x軸のホバー形式を統一してヘッダー抑制を助ける
-    xax = dict(gridcolor=GRID, tickfont=AX_F, showgrid=True, hoverformat="%Y-%m-%d")
+    xax = dict(gridcolor=config.GRID, tickfont=config.AX_F, showgrid=True, hoverformat="%Y-%m-%d")
     fig.update_xaxes(**xax, showticklabels=True,  row=1, col=1)
     fig.update_xaxes(**xax, showticklabels=False, row=2, col=1)
     fig.update_xaxes(**xax, showticklabels=True,  row=3, col=1)
@@ -309,9 +304,9 @@ def render_main_chart(
     # ── 閾値ラインを最前面に描画 ───────────────────────────
     fig.add_hline(
         y=rsi_thr, 
-        line=dict(color=AMBER, width=1.5, dash="dash"),
+        line=dict(color=config.AMBER, width=1.5, dash="dash"),
         annotation_text=f" 閾値 {rsi_thr:.1f} ",
-        annotation_font=dict(color=AMBER, size=12, family="Inter"),
+        annotation_font=dict(color=config.AMBER, size=12, family="Inter"),
         annotation_position="top right", 
         row=2, col=1
     )
@@ -319,11 +314,11 @@ def render_main_chart(
     return fig
 
 
-def build_dev_chart(df: pd.DataFrame, dev_thr: float, ma_label: str) -> go.Figure:
-    v      = df.dropna(subset=["DEV"])
+def build_dev_chart(stock_data: StockData, dev_thr: float, ma_label: str) -> go.Figure:
+    # グラフ表示用に欠損を除去したローカルコピーを作成（描画ロジックの都合）
+    v = stock_data.df.dropna(subset=["DEV"])
     # ネオンカラー: プラス = 発光グリーン, マイナス = 発光レッド
     colors = np.where(v["DEV"] < 0, "rgba(255,50,80,0.92)", "rgba(50,255,140,0.92)")
-    sig    = v[v["Sig_MA"] == True] if "Sig_MA" in v.columns else v.iloc[:0]
     fig    = go.Figure()
     fig.add_trace(go.Bar(
         x=v.index, y=v["DEV"], 
@@ -334,69 +329,67 @@ def build_dev_chart(df: pd.DataFrame, dev_thr: float, ma_label: str) -> go.Figur
         hovertemplate="%{y:+.2f}%<extra></extra>",
         customdata=v["DEV"].values,
     ))
-    fig.add_hline(y=dev_thr, line=dict(color=AMBER, width=2.5, dash="dash"),
+    fig.add_hline(y=dev_thr, line=dict(color=config.AMBER, width=2.5, dash="dash"),
                   annotation_text=f" 閾値 {dev_thr:.1f}% ",
-                  annotation_font=dict(color=AMBER, size=11),
+                  annotation_font=dict(color=config.AMBER, size=11),
                   annotation_position="bottom right")
     fig.add_hline(y=0, line=dict(color="rgba(255,255,255,0.07)", width=1))
     fig.update_layout(
-        template="plotly_dark", paper_bgcolor=BG, plot_bgcolor=BG,
+        template="plotly_dark", paper_bgcolor=config.BG, plot_bgcolor=config.BG,
         font=dict(family="Inter", color="#94A3B8"),
         title=dict(text=f"{ma_label}乖離率（閾値: {dev_thr}%）", font=dict(color="#E2E8F0", size=13)),
         height=285, margin=dict(l=65, r=18, t=42, b=18),
         hovermode="x unified",
         hoverlabel=dict(bgcolor="rgba(14,17,23,0.82)", font_color="#FFFFFF", font_size=11),
-        xaxis=dict(gridcolor=GRID, tickfont=AX_F),
-        yaxis=dict(title="乖離率 (%)", gridcolor=GRID, tickfont=AX_F, zeroline=False),
+        xaxis=dict(gridcolor=config.GRID, tickfont=config.AX_F),
+        yaxis=dict(title="乖離率 (%)", gridcolor=config.GRID, tickfont=config.AX_F, zeroline=False),
         showlegend=False,
-        legend=dict(**{k: v for k, v in LEG_BASE.items() if k not in ("x", "xanchor")},
+        legend=dict(**{k: v for k, v in config.LEG_BASE.items() if k not in ("x", "xanchor")},
                     x=0.01, xanchor="left", y=0.99, yanchor="top"),
     )
     return fig
 
 
-def build_rsi_detail_chart(df: pd.DataFrame, rsi_thr: float) -> go.Figure:
-    v   = df.dropna(subset=["RSI"])
-    sig = v[v["Sig_RSI"] == True] if "Sig_RSI" in v.columns else v.iloc[:0]
+def build_rsi_detail_chart(stock_data: StockData, rsi_thr: float) -> go.Figure:
+    v   = stock_data.df.dropna(subset=["RSI"])
     fig = go.Figure()
     fig.add_hrect(y0=0,    y1=rsi_thr, fillcolor="rgba(248,113,113,0.06)", line_width=0)
     fig.add_hrect(y0=70,   y1=100,     fillcolor="rgba(74,222,128,0.06)",  line_width=0)
     fig.add_trace(go.Scatter(
         x=v.index, y=v["RSI"],
         name="RSI(14)", mode="lines",
-        line=dict(color=INDIGO, width=1.8),
+        line=dict(color=config.INDIGO, width=1.8),
     ))
-    fig.add_hline(y=rsi_thr, line=dict(color=AMBER, width=1.5, dash="dash"),
+    fig.add_hline(y=rsi_thr, line=dict(color=config.AMBER, width=1.5, dash="dash"),
                   annotation_text=f" 閾値 {rsi_thr:.1f} ",
-                  annotation_font=dict(color=AMBER, size=12, family="Inter"),
+                  annotation_font=dict(color=config.AMBER, size=12, family="Inter"),
                   annotation_position="top right")
-    fig.add_hline(y=30, line=dict(color=RED,   width=0.8, dash="dash"),
+    fig.add_hline(y=30, line=dict(color=config.RED,   width=0.8, dash="dash"),
                   annotation_text="30.0 ", annotation_position="bottom right",
-                  annotation_font=dict(color=RED, size=10))
-    fig.add_hline(y=70, line=dict(color=GREEN, width=0.8, dash="dash"),
+                  annotation_font=dict(color=config.RED, size=10))
+    fig.add_hline(y=70, line=dict(color=config.GREEN, width=0.8, dash="dash"),
                   annotation_text="70.0 ", annotation_position="top right",
-                  annotation_font=dict(color=GREEN, size=10))
+                  annotation_font=dict(color=config.GREEN, size=10))
     fig.update_layout(
-        template="plotly_dark", paper_bgcolor=BG, plot_bgcolor=BG,
+        template="plotly_dark", paper_bgcolor=config.BG, plot_bgcolor=config.BG,
         font=dict(family="Inter", color="#94A3B8"),
         title=dict(text=f"RSI(14)（閾値: {rsi_thr}）", font=dict(color="#E2E8F0", size=13)),
         height=285, margin=dict(l=65, r=18, t=42, b=18),
         hovermode="x unified",
         hoverlabel=dict(bgcolor="rgba(14,17,23,0.82)", font_color="#FFFFFF", font_size=11),
-        xaxis=dict(gridcolor=GRID, tickfont=AX_F),
-        yaxis=dict(title="RSI", range=[0, 100], gridcolor=GRID, tickfont=AX_F, zeroline=False),
+        xaxis=dict(gridcolor=config.GRID, tickfont=config.AX_F),
+        yaxis=dict(title="RSI", range=[0, 100], gridcolor=config.GRID, tickfont=config.AX_F, zeroline=False),
         showlegend=False,
-        legend=dict(**{k: v for k, v in LEG_BASE.items() if k not in ("x", "xanchor")},
+        legend=dict(**{k: v for k, v in config.LEG_BASE.items() if k not in ("x", "xanchor")},
                     x=0.01, xanchor="left", y=0.99, yanchor="top"),
     )
     return fig
 
 
-def build_chg_chart(df: pd.DataFrame, chg_thr: float, unit: str) -> go.Figure:
-    v      = df.dropna(subset=["PRICE_CHG"])
+def build_chg_chart(stock_data: StockData, chg_thr: float, unit: str) -> go.Figure:
+    v      = stock_data.df.dropna(subset=["PRICE_CHG"])
     # ネオンカラー: プラス = 発光グリーン, マイナス = 発光レッド
     colors = np.where(v["PRICE_CHG"] < 0, "rgba(255,50,80,0.92)", "rgba(50,255,140,0.92)")
-    sig    = v[v["Sig_CHG"] == True] if "Sig_CHG" in v.columns else v.iloc[:0]
     fig    = go.Figure()
     fig.add_trace(go.Bar(
         x=v.index, y=v["PRICE_CHG"],
@@ -407,22 +400,22 @@ def build_chg_chart(df: pd.DataFrame, chg_thr: float, unit: str) -> go.Figure:
         hovertemplate="%{y:+.2f}%<extra></extra>",
         customdata=v["PRICE_CHG"].values,
     ))
-    fig.add_hline(y=chg_thr, line=dict(color=AMBER, width=2.5, dash="dash"),
+    fig.add_hline(y=chg_thr, line=dict(color=config.AMBER, width=2.5, dash="dash"),
                   annotation_text=f" 閾値 {chg_thr:.1f}% ",
-                  annotation_font=dict(color=AMBER, size=11),
+                  annotation_font=dict(color=config.AMBER, size=11),
                   annotation_position="bottom right")
     fig.add_hline(y=0, line=dict(color="rgba(255,255,255,0.07)", width=1))
     fig.update_layout(
-        template="plotly_dark", paper_bgcolor=BG, plot_bgcolor=BG,
+        template="plotly_dark", paper_bgcolor=config.BG, plot_bgcolor=config.BG,
         font=dict(family="Inter", color="#94A3B8"),
         title=dict(text=f"前{unit}比 騰落率（閾値: {chg_thr}%）", font=dict(color="#E2E8F0", size=13)),
         height=285, margin=dict(l=65, r=18, t=42, b=18),
         hovermode="x unified",
         hoverlabel=dict(bgcolor="rgba(14,17,23,0.82)", font_color="#FFFFFF", font_size=11),
-        xaxis=dict(gridcolor=GRID, tickfont=AX_F),
-        yaxis=dict(title=f"騰落率 (%)", gridcolor=GRID, tickfont=AX_F, zeroline=False),
+        xaxis=dict(gridcolor=config.GRID, tickfont=config.AX_F),
+        yaxis=dict(title=f"騰落率 (%)", gridcolor=config.GRID, tickfont=config.AX_F, zeroline=False),
         showlegend=False,
-        legend=dict(**{k: v for k, v in LEG_BASE.items() if k not in ("x", "xanchor")},
+        legend=dict(**{k: v for k, v in config.LEG_BASE.items() if k not in ("x", "xanchor")},
                     x=0.01, xanchor="left", y=0.99, yanchor="top"),
     )
     return fig
