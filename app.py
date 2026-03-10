@@ -11,7 +11,7 @@ from modules.config import set_global_css, PRESET_TICKERS, INTERVAL_OPTIONS, JPY
 from modules.data import fetch_ticker_name, DataFetchError
 from modules.logic import run_analysis_pipeline
 from modules.indicators import PANDAS_TA_AVAILABLE
-from modules.charts import build_chart, build_dev_chart, build_rsi_detail_chart, build_chg_chart
+from modules.charts import render_main_chart, build_dev_chart, build_rsi_detail_chart, build_chg_chart
 
 # =============================================================================
 # ページ設定 & CSS
@@ -89,7 +89,7 @@ def render_custom_metric(label, value, delta=None, color_class="val-sky"):
 # キャッシュ化されたパイプライン
 # =============================================================================
 @st.cache_data(ttl=86400, show_spinner=False)
-def run_analysis_pipeline_cached(**kwargs):
+def run_analysis_pipeline_v2(**kwargs):
     return run_analysis_pipeline(**kwargs)
 
 @st.cache_data(ttl=86400 * 7, show_spinner=False)
@@ -295,7 +295,7 @@ def main():
 
     # ═══ 解析実行（pipeline 呼び出し） ════════════════════════
     try:
-        df, metrics = run_analysis_pipeline_cached(
+        df, metrics = run_analysis_pipeline_v2(
             ticker=ticker,
             interval_yf=interval_yf,
             ma_period=ma_period,
@@ -316,14 +316,14 @@ def main():
         st.stop()
 
     # パイプライン結果の展開
-    latest    = metrics["latest"]
-    ma_last   = metrics["ma_last"]
-    dev_last  = metrics["dev_last"]
-    rsi_last  = metrics["rsi_last"]
-    chg_last  = metrics["chg_last"]
-    sig_count = metrics["sig_count"]
-    is_signal = metrics["is_signal"]
-    actual_start = metrics["actual_start"]
+    latest    = metrics.latest
+    ma_last   = metrics.ma_last
+    dev_last  = metrics.dev_last
+    rsi_last  = metrics.rsi_last
+    chg_last  = metrics.chg_last
+    sig_count = metrics.sig_count
+    is_signal = metrics.is_signal
+    actual_start = metrics.actual_start
     csym      = currency_symbol(ticker, display_currency)
 
     # ═══ メトリクス行 ═════════════════════════════════════════
@@ -375,6 +375,9 @@ def main():
     st.divider()
 
     # ═══ メインチャート ════════════════════════════════════════
+    # 描画対象期間をここで厳密に切り出す（責務の移動）
+    plot_df = df[(df.index.date >= start_date) & (df.index.date <= end_date)].copy()
+
     # データの実態開始日とユーザー指定の開始日が大きく乖離している場合に注意表示
     if (actual_start - start_date).days > 60:
         st.info(
@@ -383,10 +386,10 @@ def main():
             icon="ℹ️"
         )
 
-    fig = build_chart(
-        df, ticker, ticker_name, iv_label, ma_label,
+    fig = render_main_chart(
+        plot_df, ticker, ticker_name, iv_label, ma_label,
         float(dev_thr), float(rsi_thr),
-        row_heights, cond_mode, start_date, end_date, show_annual_grid,
+        row_heights, cond_mode, show_annual_grid,
     )
     st.plotly_chart(fig, use_container_width=True)
 

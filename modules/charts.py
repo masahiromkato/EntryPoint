@@ -3,39 +3,14 @@ from plotly.subplots import make_subplots
 import pandas as pd
 import numpy as np
 import datetime
-
-
-# ── 色定数 ──────────────────────────────────────────────────
-BG      = "#0E1117"
-GRID    = "rgba(148,163,184,0.12)"
-AMBER   = "#F59E0B"
-BLUE    = "#60A5FA"
-PURPLE  = "#A855F7"
-GREEN   = "#39FF14"  # Neon Green
-RED     = "#FF3131"  # Neon Red
-INDIGO  = "#818CF8"
-
-# シグナル色（高彩度・枠線と非同化）
-SIG_MA_COLOR  = "#FFEA00"  # 鮮やかな黄色（MA乖離率）
-SIG_RSI_COLOR = "#A855F7"  # パープル（RSI）
-SIG_CHG_COLOR = "#D50000"  # 鮮やかな濃い赤（騰落率）
-SIG_CMP_COLOR = "#F97316"  # オレンジ（複合）
-
-AX_F = dict(color="#64748B", size=11, family="Inter")
-TTL_F = dict(color="#7DD3FC", size=11, family="Inter")
-
-# 凡例スタイル（チャート内左側、年次ラベルの直下）
-LEG_BASE = dict(
-    bgcolor="rgba(11,18,34,0.88)",
-    bordercolor="rgba(59,130,246,0.25)",
-    borderwidth=1,
-    font=dict(size=10, color="#E2E8F0", family="Inter"),
-    orientation="v",
-    tracegroupgap=2,
+from modules.config import (
+    BG, GRID, AMBER, BLUE, PURPLE, GREEN, RED, INDIGO,
+    SIG_MA_COLOR, SIG_RSI_COLOR, SIG_CHG_COLOR, SIG_CMP_COLOR,
+    AX_F, TTL_F, LEG_BASE
 )
 
 
-def build_chart(
+def render_main_chart(
     df: pd.DataFrame,
     ticker: str,
     ticker_name: str,
@@ -45,13 +20,11 @@ def build_chart(
     rsi_thr: float,
     row_heights: list,
     cond_mode: str,
-    start_date: datetime.date,
-    end_date: datetime.date,
     show_annual_grid: bool = False,
 ) -> go.Figure:
 
-    # 描画対象をユーザー指定期間に厳密に絞り込む（バッファ分のデータを除外）
-    plot     = df[(df.index.date >= start_date) & (df.index.date <= end_date)].copy()
+    # 描画対象（呼び出し側でフィルタリング済み）
+    plot     = df.copy()
     plot     = plot.dropna(subset=["Close"])
     sig      = plot[plot["Signal"] == True]
     has_ohlc = all(c in plot.columns for c in ["Open", "High", "Low"])

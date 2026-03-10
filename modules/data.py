@@ -8,8 +8,8 @@ class DataFetchError(Exception):
     pass
 
 
-def _safe_download(ticker: str, start: datetime.date, end: datetime.date, interval: str) -> pd.DataFrame:
-    """yfinance でデータ取得。MultiIndex対応・空チェック付き。"""
+def _safe_download(ticker: str, start: datetime.date, end: datetime.date, interval: str, min_len: int = 0) -> pd.DataFrame:
+    """yfinance でデータ取得。MultiIndex対応・空チェック・最小件数チェック付き。"""
     try:
         raw = yf.download(
             ticker,
@@ -39,11 +39,24 @@ def _safe_download(ticker: str, start: datetime.date, end: datetime.date, interv
     df.dropna(subset=["Close"], inplace=True)
     df.index = pd.to_datetime(df.index)
     df.sort_index(inplace=True)
+
+    # 最小件数チェック
+    if len(df) < min_len:
+        raise DataFetchError(
+            f"データ件数が不足しています（取得: {len(df)}件 / 必要: {min_len}件）。"
+            "分析期間を長くするか、移動平均期間（MA）を短くしてください。"
+        )
+
     return df
 
 
-def fetch_data(ticker: str, start_date: datetime.date, end_date: datetime.date, interval: str) -> pd.DataFrame:
-    return _safe_download(ticker, start_date, end_date, interval)
+def fetch_data(ticker: str, start: datetime.date, end: datetime.date, interval: str, ma_period: int = 0) -> pd.DataFrame:
+    """
+    外部（logic.py）向けのインターフェース。
+    MA期間を考慮した最小データ件数（MA + 10日）を自動的に検証します。
+    """
+    min_len = ma_period + 10 if ma_period > 0 else 0
+    return _safe_download(ticker, start, end, interval, min_len=min_len)
 
 
 def fetch_ticker_name(ticker: str) -> str:
@@ -54,15 +67,14 @@ def fetch_ticker_name(ticker: str) -> str:
         return ""
 
 
-def fetch_fx_rate(start_date: datetime.date, end_date: datetime.date, interval: str) -> pd.Series:
-    """USD/JPY レートを取得してSeriesで返す。失敗時は DataFetchError。"""
+def fetch_fx_rate(start: datetime.date, end: datetime.date, interval: str) -> pd.Series:
+    """USD/JPY レートを取得。失敗時は DataFetchError。"""
     try:
-        df = _safe_download("JPY=X", start_date, end_date, interval)
-    except DataFetchError:
-        raise DataFetchError("為替レート（JPY=X）の取得に失敗しました。")
+        # 為替データは最小件数チェックを緩める（計算不能回避のため空でなければOKとする）
+        df = _safe_download("JPY=X", start, end, interval, min_len=1)
+    except DataFetchError as e:
+        raise DataFetchError(f"為替レート（JPY=X）の取得に失敗しました: {str(e)}")
 
-    if df.empty or "Close" not in df.columns:
-        raise DataFetchError("為替データが空です。")
     return df["Close"].rename("USDJPY")
 
 

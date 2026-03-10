@@ -1,8 +1,21 @@
 import datetime
 import pandas as pd
+from dataclasses import dataclass
+from typing import Optional
 from modules.data import fetch_data, fetch_fx_rate, apply_fx_conversion
 from modules.indicators import calc_indicators, gen_signals
 from modules.simulation import simulate
+
+@dataclass
+class AnalysisMetrics:
+    latest: float
+    ma_last: Optional[float]
+    dev_last: Optional[float]
+    rsi_last: Optional[float]
+    chg_last: Optional[float]
+    sig_count: int
+    is_signal: bool
+    actual_start: datetime.date
 
 def run_analysis_pipeline(
     ticker: str,
@@ -33,7 +46,7 @@ def run_analysis_pipeline(
     )
     fetch_start = start_date - datetime.timedelta(days=buffer_days)
     
-    df = fetch_data(ticker, start_date=fetch_start, end_date=end_date, interval=interval_yf)
+    df = fetch_data(ticker, start=fetch_start, end=end_date, interval=interval_yf, ma_period=ma_period)
     
     # 2. Handle FX if needed
     if display_currency == "JPY" and not is_native_jpy:
@@ -50,18 +63,24 @@ def run_analysis_pipeline(
     df = gen_signals(df, dev_thr, use_ma, rsi_thr, use_rsi, chg_thr, use_chg, cond_mode)
     
     # 5. Run Simulation
-    df = simulate(df, periodic_invest, signal_bonus)
+    sim_results = simulate(
+        prices=df["Close"], 
+        signals=df["Signal"], 
+        periodic_invest=periodic_invest, 
+        signal_bonus=signal_bonus
+    )
+    df = df.join(sim_results)
     
     # 6. Extract Metrics
-    metrics = {
-        "latest":  float(df["Close"].iloc[-1]),
-        "ma_last": float(df["MA_VAL"].iloc[-1]) if not pd.isna(df["MA_VAL"].iloc[-1]) else None,
-        "dev_last": float(df["DEV"].iloc[-1]) if not pd.isna(df["DEV"].iloc[-1]) else None,
-        "rsi_last": float(df["RSI"].iloc[-1]) if not pd.isna(df["RSI"].iloc[-1]) else None,
-        "chg_last": float(df["PRICE_CHG"].iloc[-1]) if not pd.isna(df["PRICE_CHG"].iloc[-1]) else None,
-        "sig_count": int(df["Signal"].sum()),
-        "is_signal": bool(df["Signal"].iloc[-1]),
-        "actual_start": df.index[0].date(),
-    }
+    metrics = AnalysisMetrics(
+        latest=float(df["Close"].iloc[-1]),
+        ma_last=float(df["MA_VAL"].iloc[-1]) if not pd.isna(df["MA_VAL"].iloc[-1]) else None,
+        dev_last=float(df["DEV"].iloc[-1]) if not pd.isna(df["DEV"].iloc[-1]) else None,
+        rsi_last=float(df["RSI"].iloc[-1]) if not pd.isna(df["RSI"].iloc[-1]) else None,
+        chg_last=float(df["PRICE_CHG"].iloc[-1]) if not pd.isna(df["PRICE_CHG"].iloc[-1]) else None,
+        sig_count=int(df["Signal"].sum()),
+        is_signal=bool(df["Signal"].iloc[-1]),
+        actual_start=df.index[0].date(),
+    )
     
     return df, metrics

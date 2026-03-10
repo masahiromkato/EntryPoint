@@ -1,26 +1,83 @@
 import streamlit as st
+from dataclasses import dataclass, field
+from typing import Dict, Set, Any
 
 # =============================================================================
 # 定数
 # =============================================================================
-PRESET_TICKERS: dict[str, str] = {
-    "S&P 500 ETF　　(VOO)":      "VOO",
-    "NASDAQ-100 ETF　(QQQ)":     "QQQ",
-    "小型株 ETF　　  (IWM)":       "IWM",
-    "新興国 ETF　　  (VWO)":       "VWO",
-    "インド株 ETF　  (INDA)":      "INDA",
-    "日経225 ETF　　 (1321.T)":   "1321.T",
-    "TOPIX ETF　　　 (1306.T)":   "1306.T",
-}
+@dataclass
+class AppConfig:
+    # ── 基本設定 ──────────────────────────
+    PRESET_TICKERS: Dict[str, str] = field(default_factory=lambda: {
+        "S&P 500 ETF　　(VOO)":      "VOO",
+        "NASDAQ-100 ETF　(QQQ)":     "QQQ",
+        "小型株 ETF　　  (IWM)":       "IWM",
+        "新興国 ETF　　  (VWO)":       "VWO",
+        "インド株 ETF　  (INDA)":      "INDA",
+        "日経225 ETF　　 (1321.T)":   "1321.T",
+        "TOPIX ETF　　　 (1306.T)":   "1306.T",
+    })
+    
+    INTERVAL_OPTIONS: Dict[str, Dict[str, str]] = field(default_factory=lambda: {
+        "日足": {"yf":"1d",  "ma_suffix":"日",   "unit":"日"},
+        "週足": {"yf":"1wk", "ma_suffix":"週",   "unit":"週"},
+        "月足": {"yf":"1mo", "ma_suffix":"カ月", "unit":"月"},
+    })
+    
+    JPY_TICKERS: Set[str] = field(default_factory=lambda: {
+        "1321.T","1306.T","1308.T","1320.T","2558.T","2559.T"
+    })
 
-INTERVAL_OPTIONS: dict[str, dict] = {
-    "日足": {"yf":"1d",  "ma_suffix":"日",   "unit":"日"},
-    "週足": {"yf":"1wk", "ma_suffix":"週",   "unit":"週"},
-    "月足": {"yf":"1mo", "ma_suffix":"カ月", "unit":"月"},
-}
+    # ── デザイン定数 ──────────────────────
+    BG: str      = "#0E1117"
+    GRID: str    = "rgba(148,163,184,0.12)"
+    AMBER: str   = "#F59E0B"
+    BLUE: str    = "#60A5FA"
+    PURPLE: str  = "#A855F7"
+    GREEN: str   = "#39FF14"  # Neon Green
+    RED: str     = "#FF3131"  # Neon Red
+    INDIGO: str  = "#818CF8"
 
-# 元々JPY建てのティッカー（為替変換不要）
-JPY_TICKERS: set[str] = {"1321.T","1306.T","1308.T","1320.T","2558.T","2559.T"}
+    # シグナル色
+    SIG_MA_COLOR: str  = "#FFEA00"
+    SIG_RSI_COLOR: str = "#A855F7"
+    SIG_CHG_COLOR: str = "#D50000"
+    SIG_CMP_COLOR: str = "#F97316"
+
+    AX_F: Dict[str, Any] = field(default_factory=lambda: dict(color="#64748B", size=11, family="Inter"))
+    TTL_F: Dict[str, Any] = field(default_factory=lambda: dict(color="#7DD3FC", size=11, family="Inter"))
+
+    LEG_BASE: Dict[str, Any] = field(default_factory=lambda: dict(
+        bgcolor="rgba(11,18,34,0.88)",
+        bordercolor="rgba(59,130,246,0.25)",
+        borderwidth=1,
+        font=dict(size=10, color="#E2E8F0", family="Inter"),
+        orientation="v",
+        tracegroupgap=2,
+    ))
+
+# インスタンス生成
+config = AppConfig()
+
+# ── 互換性維持のためのエイリアス ──────────────────────
+PRESET_TICKERS   = config.PRESET_TICKERS
+INTERVAL_OPTIONS = config.INTERVAL_OPTIONS
+JPY_TICKERS      = config.JPY_TICKERS
+BG               = config.BG
+GRID             = config.GRID
+AMBER            = config.AMBER
+BLUE             = config.BLUE
+PURPLE           = config.PURPLE
+GREEN            = config.GREEN
+RED              = config.RED
+INDIGO           = config.INDIGO
+SIG_MA_COLOR     = config.SIG_MA_COLOR
+SIG_RSI_COLOR    = config.SIG_RSI_COLOR
+SIG_CHG_COLOR    = config.SIG_CHG_COLOR
+SIG_CMP_COLOR    = config.SIG_CMP_COLOR
+AX_F             = config.AX_F
+TTL_F            = config.TTL_F
+LEG_BASE         = config.LEG_BASE
 
 
 def set_global_css():
